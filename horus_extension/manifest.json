@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "IC Horus - Scam Detect",
+  "version": "1.0",
+  "description": "Monitora mensagens do WhatsApp Web para detectar tentativas de golpe.",
+  "icons": {
+    "16": "util/logo_recod.png",
+    "48": "util/logo_recod.png",
+    "128": "util/logo_recod.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "http://127.0.0.1:5000/*",
+    "http://localhost:5000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "storage"
+  ]
+}
