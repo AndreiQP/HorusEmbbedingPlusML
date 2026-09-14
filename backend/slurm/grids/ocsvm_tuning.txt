@@ -1,0 +1,5 @@
+--mode grid_search --model ocsvm --embedding voyage --dim 300 --force-retrain
+--mode grid_search --model ocsvm --embedding openai --dim 300 --force-retrain
+--mode grid_search --model ocsvm --embedding e5 --dim 300 --force-retrain
+--mode grid_search --model ocsvm --embedding bge --dim 300 --force-retrain
+--mode grid_search --model ocsvm --embedding minilm --dim 300 --force-retrain

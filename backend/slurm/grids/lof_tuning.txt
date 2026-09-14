@@ -1,0 +1,5 @@
+--mode grid_search --model lof --embedding voyage --dim 300 --force-retrain
+--mode grid_search --model lof --embedding openai --dim 300 --force-retrain
+--mode grid_search --model lof --embedding e5 --dim 300 --force-retrain
+--mode grid_search --model lof --embedding bge --dim 300 --force-retrain
+--mode grid_search --model lof --embedding minilm --dim 300 --force-retrain

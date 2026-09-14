@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+backend/machine_learning/__pycache__/
+node_modules/
+backend/notebooks/__pycache__/
+backend/machine_learning/visualizations/
+backend/machine_learning/visualizations_test/
+backend/trained_models/*
+backend/datasets/
+backend/fcnn_trained/
+backup/
+experiment_results/
+
+# Generated cluster logs and local connection probe
+slurm_logs/
+teste_codex_conexao.txt

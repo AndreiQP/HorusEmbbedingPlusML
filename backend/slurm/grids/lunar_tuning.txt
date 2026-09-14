@@ -1,0 +1,5 @@
+--mode grid_search --model lunar --embedding voyage --dim 300 --force-retrain
+--mode grid_search --model lunar --embedding openai --dim 300 --force-retrain
+--mode grid_search --model lunar --embedding e5 --dim 300 --force-retrain
+--mode grid_search --model lunar --embedding bge --dim 300 --force-retrain
+--mode grid_search --model lunar --embedding minilm --dim 300 --force-retrain

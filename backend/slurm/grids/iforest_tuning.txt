@@ -1,0 +1,5 @@
+--mode grid_search --model iforest --embedding voyage --dim 300 --force-retrain
+--mode grid_search --model iforest --embedding openai --dim 300 --force-retrain
+--mode grid_search --model iforest --embedding e5 --dim 300 --force-retrain
+--mode grid_search --model iforest --embedding bge --dim 300 --force-retrain
+--mode grid_search --model iforest --embedding minilm --dim 300 --force-retrain
