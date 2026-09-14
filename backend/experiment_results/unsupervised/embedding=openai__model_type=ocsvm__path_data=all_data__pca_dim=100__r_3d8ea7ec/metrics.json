@@ -1,0 +1,32 @@
+{
+  "train": {
+    "model_name": "OCSVM_openai",
+    "dataset_name": "train",
+    "accuracy": 0.5487,
+    "f1_macro": 0.4835,
+    "f1_scam": 0.3001,
+    "precision_macro": 0.6661,
+    "recall_macro": 0.5694,
+    "precision_scam": 0.8199,
+    "recall_scam": 0.1836,
+    "TP": 660,
+    "TN": 3083,
+    "FP": 145,
+    "FN": 2934
+  },
+  "val": {
+    "model_name": "OCSVM_openai",
+    "dataset_name": "validation",
+    "accuracy": 0.5134,
+    "f1_macro": 0.3459,
+    "f1_scam": 0.015,
+    "precision_macro": 0.4418,
+    "recall_macro": 0.3001,
+    "precision_scam": 0.0088,
+    "recall_scam": 0.0482,
+    "TP": 4,
+    "TN": 552,
+    "FP": 448,
+    "FN": 79
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "train": {
+    "model_name": "OCSVM_voyage",
+    "dataset_name": "train",
+    "accuracy": 0.442,
+    "f1_macro": 0.4272,
+    "f1_scam": 0.3353,
+    "precision_macro": 0.4442,
+    "recall_macro": 0.4519,
+    "precision_scam": 0.4502,
+    "recall_scam": 0.2671,
+    "TP": 768,
+    "TN": 1644,
+    "FP": 938,
+    "FN": 2107
+  },
+  "test": {
+    "model_name": "OCSVM_voyage",
+    "dataset_name": "test",
+    "accuracy": 0.4337,
+    "f1_macro": 0.4205,
+    "f1_scam": 0.333,
+    "precision_macro": 0.435,
+    "recall_macro": 0.443,
+    "precision_scam": 0.4386,
+    "recall_scam": 0.2684,
+    "TP": 193,
+    "TN": 399,
+    "FP": 247,
+    "FN": 526
+  },
+  "val": {
+    "model_name": "OCSVM_voyage",
+    "dataset_name": "validation",
+    "accuracy": 0.9243,
+    "f1_macro": 0.4922,
+    "f1_scam": 0.0238,
+    "precision_macro": 0.9621,
+    "recall_macro": 0.506,
+    "precision_scam": 1.0,
+    "recall_scam": 0.012,
+    "TP": 1,
+    "TN": 1000,
+    "FP": 0,
+    "FN": 82
+  }
+}

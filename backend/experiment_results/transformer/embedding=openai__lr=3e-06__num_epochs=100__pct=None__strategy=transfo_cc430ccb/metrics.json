@@ -1,0 +1,32 @@
+{
+  "test": {
+    "model_name": "Transformer_openai",
+    "dataset_name": "test_internal",
+    "accuracy": 0.9842,
+    "f1_macro": 0.9822,
+    "f1_scam": 0.9881,
+    "precision_macro": 0.9809,
+    "recall_macro": 0.9835,
+    "precision_scam": 0.9908,
+    "recall_scam": 0.9855,
+    "TP": 1287,
+    "TN": 638,
+    "FP": 12,
+    "FN": 19
+  },
+  "val": {
+    "model_name": "Transformer_openai",
+    "dataset_name": "validation",
+    "accuracy": 0.916,
+    "f1_macro": 0.7964,
+    "f1_scam": 0.6403,
+    "precision_macro": 0.7371,
+    "recall_macro": 0.9435,
+    "precision_scam": 0.4765,
+    "recall_scam": 0.9759,
+    "TP": 81,
+    "TN": 911,
+    "FP": 89,
+    "FN": 2
+  }
+}

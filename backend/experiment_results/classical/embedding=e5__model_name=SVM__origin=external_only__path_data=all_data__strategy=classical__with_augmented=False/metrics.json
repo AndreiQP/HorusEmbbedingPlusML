@@ -1,0 +1,15 @@
+{
+  "model_name": "SVM_e5",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9451,
+  "f1_macro": 0.9447,
+  "f1_scam": 0.9494,
+  "precision_macro": 0.948,
+  "recall_macro": 0.9432,
+  "precision_scam": 0.9226,
+  "recall_scam": 0.9777,
+  "TP": 703,
+  "TN": 587,
+  "FP": 59,
+  "FN": 16
+}

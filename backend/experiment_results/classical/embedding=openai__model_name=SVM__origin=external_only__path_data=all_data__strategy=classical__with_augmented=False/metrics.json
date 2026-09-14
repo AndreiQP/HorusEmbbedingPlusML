@@ -1,0 +1,15 @@
+{
+  "model_name": "SVM_openai",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9663,
+  "f1_macro": 0.9662,
+  "f1_scam": 0.9681,
+  "precision_macro": 0.9664,
+  "recall_macro": 0.966,
+  "precision_scam": 0.9641,
+  "recall_scam": 0.9722,
+  "TP": 699,
+  "TN": 620,
+  "FP": 26,
+  "FN": 20
+}

@@ -1,0 +1,15 @@
+{
+  "model_name": "XGBOOST_voyage",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9209,
+  "f1_macro": 0.9201,
+  "f1_scam": 0.9282,
+  "precision_macro": 0.9265,
+  "recall_macro": 0.9181,
+  "precision_scam": 0.8892,
+  "recall_scam": 0.9708,
+  "TP": 698,
+  "TN": 559,
+  "FP": 87,
+  "FN": 21
+}

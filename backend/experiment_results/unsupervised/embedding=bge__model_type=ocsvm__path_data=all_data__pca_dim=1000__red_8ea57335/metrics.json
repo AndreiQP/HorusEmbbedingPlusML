@@ -1,0 +1,32 @@
+{
+  "train": {
+    "model_name": "OCSVM_bge",
+    "dataset_name": "train",
+    "accuracy": 0.5169,
+    "f1_macro": 0.5165,
+    "f1_scam": 0.5041,
+    "precision_macro": 0.5199,
+    "recall_macro": 0.5197,
+    "precision_scam": 0.5488,
+    "recall_scam": 0.4661,
+    "TP": 1675,
+    "TN": 1851,
+    "FP": 1377,
+    "FN": 1919
+  },
+  "val": {
+    "model_name": "OCSVM_bge",
+    "dataset_name": "validation",
+    "accuracy": 0.831,
+    "f1_macro": 0.5154,
+    "f1_scam": 0.1244,
+    "precision_macro": 0.515,
+    "recall_macro": 0.5218,
+    "precision_scam": 0.1032,
+    "recall_scam": 0.1566,
+    "TP": 13,
+    "TN": 887,
+    "FP": 113,
+    "FN": 70
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "model_name": "KNN_voyage",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9582,
+  "f1_macro": 0.9582,
+  "f1_scam": 0.9599,
+  "precision_macro": 0.9579,
+  "recall_macro": 0.9587,
+  "precision_scam": 0.9702,
+  "recall_scam": 0.9499,
+  "TP": 683,
+  "TN": 625,
+  "FP": 21,
+  "FN": 36
+}

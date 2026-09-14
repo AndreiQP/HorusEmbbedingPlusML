@@ -1,0 +1,19 @@
+{
+  "validation_external": {
+    "model_name": "CVDD_bge",
+    "dataset_name": "validation_external",
+    "accuracy": 0.7488,
+    "f1_macro": 0.4521,
+    "f1_scam": 0.049,
+    "precision_macro": 0.4741,
+    "recall_macro": 0.4442,
+    "precision_scam": 0.0345,
+    "recall_scam": 0.0843,
+    "roc_auc": 0.3283,
+    "pr_auc": 0.0548,
+    "TP": 7,
+    "TN": 804,
+    "FP": 196,
+    "FN": 76
+  }
+}

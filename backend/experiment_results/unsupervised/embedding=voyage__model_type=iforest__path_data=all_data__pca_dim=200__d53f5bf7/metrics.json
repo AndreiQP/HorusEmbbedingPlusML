@@ -1,0 +1,47 @@
+{
+  "train": {
+    "model_name": "IFOREST_voyage",
+    "dataset_name": "train",
+    "accuracy": 0.7233,
+    "f1_macro": 0.7188,
+    "f1_scam": 0.683,
+    "precision_macro": 0.7558,
+    "recall_macro": 0.7322,
+    "precision_scam": 0.8613,
+    "recall_scam": 0.5659,
+    "TP": 1627,
+    "TN": 2320,
+    "FP": 262,
+    "FN": 1248
+  },
+  "test": {
+    "model_name": "IFOREST_voyage",
+    "dataset_name": "test",
+    "accuracy": 0.7231,
+    "f1_macro": 0.7169,
+    "f1_scam": 0.6753,
+    "precision_macro": 0.7644,
+    "recall_macro": 0.733,
+    "precision_scam": 0.8831,
+    "recall_scam": 0.5466,
+    "TP": 393,
+    "TN": 594,
+    "FP": 52,
+    "FN": 326
+  },
+  "val": {
+    "model_name": "IFOREST_voyage",
+    "dataset_name": "validation",
+    "accuracy": 0.0766,
+    "f1_macro": 0.0712,
+    "f1_scam": 0.1424,
+    "precision_macro": 0.0383,
+    "recall_macro": 0.5,
+    "precision_scam": 0.0766,
+    "recall_scam": 1.0,
+    "TP": 83,
+    "TN": 0,
+    "FP": 1000,
+    "FN": 0
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "model_name": "SVM_voyage",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9663,
+  "f1_macro": 0.9662,
+  "f1_scam": 0.9681,
+  "precision_macro": 0.9663,
+  "recall_macro": 0.9661,
+  "precision_scam": 0.9667,
+  "recall_scam": 0.9694,
+  "TP": 697,
+  "TN": 622,
+  "FP": 24,
+  "FN": 22
+}

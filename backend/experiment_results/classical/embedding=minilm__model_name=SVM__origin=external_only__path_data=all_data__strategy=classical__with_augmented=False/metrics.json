@@ -1,0 +1,15 @@
+{
+  "model_name": "SVM_minilm",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9524,
+  "f1_macro": 0.9522,
+  "f1_scam": 0.9549,
+  "precision_macro": 0.9523,
+  "recall_macro": 0.9521,
+  "precision_scam": 0.9529,
+  "recall_scam": 0.9569,
+  "TP": 688,
+  "TN": 612,
+  "FP": 34,
+  "FN": 31
+}

@@ -1,0 +1,15 @@
+{
+  "model_name": "NAIVEBAYES_minilm",
+  "dataset_name": "test_internal",
+  "accuracy": 0.8828,
+  "f1_macro": 0.8815,
+  "f1_scam": 0.8938,
+  "precision_macro": 0.8878,
+  "recall_macro": 0.8798,
+  "precision_scam": 0.8551,
+  "recall_scam": 0.936,
+  "TP": 673,
+  "TN": 532,
+  "FP": 114,
+  "FN": 46
+}

@@ -1,0 +1,15 @@
+{
+  "model_name": "KNN_bge",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9658,
+  "f1_macro": 0.9614,
+  "f1_scam": 0.9744,
+  "precision_macro": 0.964,
+  "recall_macro": 0.9589,
+  "precision_scam": 0.9692,
+  "recall_scam": 0.9798,
+  "TP": 1258,
+  "TN": 606,
+  "FP": 40,
+  "FN": 26
+}

@@ -1,0 +1,15 @@
+{
+  "model_name": "NAIVEBAYES_bge",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9048,
+  "f1_macro": 0.9042,
+  "f1_scam": 0.9114,
+  "precision_macro": 0.906,
+  "recall_macro": 0.9033,
+  "precision_scam": 0.8932,
+  "recall_scam": 0.9305,
+  "TP": 669,
+  "TN": 566,
+  "FP": 80,
+  "FN": 50
+}

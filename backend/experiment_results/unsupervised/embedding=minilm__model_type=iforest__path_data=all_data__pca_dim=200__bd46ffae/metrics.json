@@ -1,0 +1,47 @@
+{
+  "train": {
+    "model_name": "IFOREST_minilm",
+    "dataset_name": "train",
+    "accuracy": 0.5989,
+    "f1_macro": 0.5715,
+    "f1_scam": 0.4633,
+    "precision_macro": 0.6655,
+    "recall_macro": 0.6142,
+    "precision_scam": 0.7849,
+    "recall_scam": 0.3287,
+    "TP": 945,
+    "TN": 2323,
+    "FP": 259,
+    "FN": 1930
+  },
+  "test": {
+    "model_name": "IFOREST_minilm",
+    "dataset_name": "test",
+    "accuracy": 0.5897,
+    "f1_macro": 0.5614,
+    "f1_scam": 0.4499,
+    "precision_macro": 0.6531,
+    "recall_macro": 0.6051,
+    "precision_scam": 0.7659,
+    "recall_scam": 0.3185,
+    "TP": 229,
+    "TN": 576,
+    "FP": 70,
+    "FN": 490
+  },
+  "val": {
+    "model_name": "IFOREST_minilm",
+    "dataset_name": "validation",
+    "accuracy": 0.0185,
+    "f1_macro": 0.0184,
+    "f1_scam": 0.0093,
+    "precision_macro": 0.0832,
+    "recall_macro": 0.0376,
+    "precision_scam": 0.0051,
+    "recall_scam": 0.0602,
+    "TP": 5,
+    "TN": 15,
+    "FP": 985,
+    "FN": 78
+  }
+}

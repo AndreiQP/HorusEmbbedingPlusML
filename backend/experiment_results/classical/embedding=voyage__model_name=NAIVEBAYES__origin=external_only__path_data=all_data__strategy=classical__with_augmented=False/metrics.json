@@ -1,0 +1,15 @@
+{
+  "model_name": "NAIVEBAYES_voyage",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9179,
+  "f1_macro": 0.9173,
+  "f1_scam": 0.9246,
+  "precision_macro": 0.9211,
+  "recall_macro": 0.9158,
+  "precision_scam": 0.8957,
+  "recall_scam": 0.9555,
+  "TP": 687,
+  "TN": 566,
+  "FP": 80,
+  "FN": 32
+}

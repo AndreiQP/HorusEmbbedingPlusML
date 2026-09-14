@@ -14,3 +14,16 @@ experiment_results/
 # Generated cluster logs and local connection probe
 slurm_logs/
 teste_codex_conexao.txt
+
+# Track lightweight experiment metrics and visualizations only
+!backend/experiment_results/
+!backend/experiment_results/**/
+!backend/experiment_results/**/*.png
+!backend/experiment_results/**/*.jpg
+!backend/experiment_results/**/*.jpeg
+!backend/experiment_results/**/*.svg
+!backend/experiment_results/**/*.pdf
+!backend/experiment_results/**/*.csv
+!backend/experiment_results/**/*.json
+
+backend/experiment_results/**/*.csv

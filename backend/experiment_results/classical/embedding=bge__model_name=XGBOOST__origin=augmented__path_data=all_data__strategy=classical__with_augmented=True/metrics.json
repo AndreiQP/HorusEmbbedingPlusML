@@ -1,0 +1,15 @@
+{
+  "model_name": "XGBOOST_bge",
+  "dataset_name": "test_internal",
+  "accuracy": 0.6653,
+  "f1_macro": 0.3995,
+  "f1_scam": 0.799,
+  "precision_macro": 0.3326,
+  "recall_macro": 0.5,
+  "precision_scam": 0.6653,
+  "recall_scam": 1.0,
+  "TP": 1284,
+  "TN": 0,
+  "FP": 646,
+  "FN": 0
+}

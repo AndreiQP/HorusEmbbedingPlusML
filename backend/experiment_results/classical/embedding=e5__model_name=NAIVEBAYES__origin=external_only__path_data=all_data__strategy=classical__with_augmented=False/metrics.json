@@ -1,0 +1,15 @@
+{
+  "model_name": "NAIVEBAYES_e5",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9018,
+  "f1_macro": 0.9005,
+  "f1_scam": 0.9121,
+  "precision_macro": 0.9102,
+  "recall_macro": 0.8982,
+  "precision_scam": 0.8634,
+  "recall_scam": 0.9666,
+  "TP": 695,
+  "TN": 536,
+  "FP": 110,
+  "FN": 24
+}

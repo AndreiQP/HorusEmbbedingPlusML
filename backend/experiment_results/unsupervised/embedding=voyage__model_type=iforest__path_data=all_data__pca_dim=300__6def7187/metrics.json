@@ -1,0 +1,32 @@
+{
+  "train": {
+    "model_name": "IFOREST_voyage",
+    "dataset_name": "train",
+    "accuracy": 0.8034,
+    "f1_macro": 0.8034,
+    "f1_scam": 0.8031,
+    "precision_macro": 0.806,
+    "recall_macro": 0.8059,
+    "precision_scam": 0.8504,
+    "recall_scam": 0.7607,
+    "TP": 2734,
+    "TN": 2747,
+    "FP": 481,
+    "FN": 860
+  },
+  "val": {
+    "model_name": "IFOREST_voyage",
+    "dataset_name": "validation",
+    "accuracy": 0.0766,
+    "f1_macro": 0.0712,
+    "f1_scam": 0.1424,
+    "precision_macro": 0.0383,
+    "recall_macro": 0.5,
+    "precision_scam": 0.0766,
+    "recall_scam": 1.0,
+    "TP": 83,
+    "TN": 0,
+    "FP": 1000,
+    "FN": 0
+  }
+}

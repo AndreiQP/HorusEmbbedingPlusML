@@ -1,0 +1,32 @@
+{
+  "test": {
+    "model_name": "Transformer_voyage",
+    "dataset_name": "test_internal",
+    "accuracy": 0.9749,
+    "f1_macro": 0.9716,
+    "f1_scam": 0.9813,
+    "precision_macro": 0.9745,
+    "recall_macro": 0.9689,
+    "precision_scam": 0.9758,
+    "recall_scam": 0.987,
+    "TP": 1289,
+    "TN": 618,
+    "FP": 32,
+    "FN": 17
+  },
+  "val": {
+    "model_name": "Transformer_voyage",
+    "dataset_name": "validation",
+    "accuracy": 0.9298,
+    "f1_macro": 0.8206,
+    "f1_scam": 0.6807,
+    "precision_macro": 0.7602,
+    "recall_macro": 0.951,
+    "precision_scam": 0.5226,
+    "recall_scam": 0.9759,
+    "TP": 81,
+    "TN": 926,
+    "FP": 74,
+    "FN": 2
+  }
+}

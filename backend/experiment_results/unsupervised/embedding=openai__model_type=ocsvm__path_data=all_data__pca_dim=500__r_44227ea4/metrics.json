@@ -1,0 +1,47 @@
+{
+  "train": {
+    "model_name": "OCSVM_openai",
+    "dataset_name": "train",
+    "accuracy": 0.5703,
+    "f1_macro": 0.5547,
+    "f1_scam": 0.4715,
+    "precision_macro": 0.6,
+    "recall_macro": 0.582,
+    "precision_scam": 0.6697,
+    "recall_scam": 0.3638,
+    "TP": 1046,
+    "TN": 2066,
+    "FP": 516,
+    "FN": 1829
+  },
+  "test": {
+    "model_name": "OCSVM_openai",
+    "dataset_name": "test",
+    "accuracy": 0.5575,
+    "f1_macro": 0.543,
+    "f1_scam": 0.4617,
+    "precision_macro": 0.5823,
+    "recall_macro": 0.5687,
+    "precision_scam": 0.6427,
+    "recall_scam": 0.3602,
+    "TP": 259,
+    "TN": 502,
+    "FP": 144,
+    "FN": 460
+  },
+  "val": {
+    "model_name": "OCSVM_openai",
+    "dataset_name": "validation",
+    "accuracy": 0.5097,
+    "f1_macro": 0.3835,
+    "f1_scam": 0.1046,
+    "precision_macro": 0.485,
+    "recall_macro": 0.4472,
+    "precision_scam": 0.0608,
+    "recall_scam": 0.3735,
+    "TP": 31,
+    "TN": 521,
+    "FP": 479,
+    "FN": 52
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "model_name": "FCNN",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9788,
+  "f1_macro": 0.9762,
+  "f1_scam": 0.984,
+  "precision_macro": 0.9756,
+  "recall_macro": 0.9767,
+  "precision_scam": 0.9852,
+  "recall_scam": 0.9829,
+  "TP": 1262,
+  "TN": 627,
+  "FP": 19,
+  "FN": 22
+}

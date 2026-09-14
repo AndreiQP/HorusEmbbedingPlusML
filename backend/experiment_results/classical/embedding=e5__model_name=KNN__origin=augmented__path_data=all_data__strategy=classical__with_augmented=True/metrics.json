@@ -1,0 +1,15 @@
+{
+  "model_name": "KNN_e5",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9679,
+  "f1_macro": 0.9635,
+  "f1_scam": 0.9761,
+  "precision_macro": 0.9691,
+  "recall_macro": 0.9586,
+  "precision_scam": 0.9657,
+  "recall_scam": 0.9868,
+  "TP": 1267,
+  "TN": 601,
+  "FP": 45,
+  "FN": 17
+}

@@ -1,0 +1,32 @@
+{
+  "train": {
+    "model_name": "OCSVM_voyage",
+    "dataset_name": "train",
+    "accuracy": 0.4459,
+    "f1_macro": 0.4323,
+    "f1_scam": 0.3444,
+    "precision_macro": 0.4489,
+    "recall_macro": 0.4555,
+    "precision_scam": 0.4572,
+    "recall_scam": 0.2763,
+    "TP": 993,
+    "TN": 2049,
+    "FP": 1179,
+    "FN": 2601
+  },
+  "val": {
+    "model_name": "OCSVM_voyage",
+    "dataset_name": "validation",
+    "accuracy": 0.8578,
+    "f1_macro": 0.4681,
+    "f1_scam": 0.0128,
+    "precision_macro": 0.4663,
+    "recall_macro": 0.47,
+    "precision_scam": 0.0137,
+    "recall_scam": 0.012,
+    "TP": 1,
+    "TN": 928,
+    "FP": 72,
+    "FN": 82
+  }
+}

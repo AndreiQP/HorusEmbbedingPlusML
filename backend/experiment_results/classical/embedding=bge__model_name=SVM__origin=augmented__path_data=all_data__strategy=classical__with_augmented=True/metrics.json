@@ -1,0 +1,15 @@
+{
+  "model_name": "SVM_bge",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9679,
+  "f1_macro": 0.9637,
+  "f1_scam": 0.976,
+  "precision_macro": 0.9671,
+  "recall_macro": 0.9605,
+  "precision_scam": 0.9693,
+  "recall_scam": 0.9829,
+  "TP": 1262,
+  "TN": 606,
+  "FP": 40,
+  "FN": 22
+}

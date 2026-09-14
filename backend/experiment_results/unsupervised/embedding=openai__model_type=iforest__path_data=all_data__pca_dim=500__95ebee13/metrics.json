@@ -1,0 +1,32 @@
+{
+  "train": {
+    "model_name": "IFOREST_openai",
+    "dataset_name": "train",
+    "accuracy": 0.6821,
+    "f1_macro": 0.6773,
+    "f1_scam": 0.6383,
+    "precision_macro": 0.7082,
+    "recall_macro": 0.6905,
+    "precision_scam": 0.7965,
+    "recall_scam": 0.5326,
+    "TP": 1914,
+    "TN": 2739,
+    "FP": 489,
+    "FN": 1680
+  },
+  "val": {
+    "model_name": "IFOREST_openai",
+    "dataset_name": "validation",
+    "accuracy": 0.0766,
+    "f1_macro": 0.0712,
+    "f1_scam": 0.1424,
+    "precision_macro": 0.0383,
+    "recall_macro": 0.5,
+    "precision_scam": 0.0766,
+    "recall_scam": 1.0,
+    "TP": 83,
+    "TN": 0,
+    "FP": 1000,
+    "FN": 0
+  }
+}

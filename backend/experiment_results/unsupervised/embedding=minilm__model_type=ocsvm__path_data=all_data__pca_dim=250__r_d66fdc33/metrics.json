@@ -1,0 +1,32 @@
+{
+  "train": {
+    "model_name": "OCSVM_minilm",
+    "dataset_name": "train",
+    "accuracy": 0.4249,
+    "f1_macro": 0.4065,
+    "f1_scam": 0.3018,
+    "precision_macro": 0.4232,
+    "recall_macro": 0.4357,
+    "precision_scam": 0.4188,
+    "recall_scam": 0.2359,
+    "TP": 848,
+    "TN": 2051,
+    "FP": 1177,
+    "FN": 2746
+  },
+  "val": {
+    "model_name": "OCSVM_minilm",
+    "dataset_name": "validation",
+    "accuracy": 0.6039,
+    "f1_macro": 0.3933,
+    "f1_scam": 0.036,
+    "precision_macro": 0.459,
+    "recall_macro": 0.3712,
+    "precision_scam": 0.0221,
+    "recall_scam": 0.0964,
+    "TP": 8,
+    "TN": 646,
+    "FP": 354,
+    "FN": 75
+  }
+}

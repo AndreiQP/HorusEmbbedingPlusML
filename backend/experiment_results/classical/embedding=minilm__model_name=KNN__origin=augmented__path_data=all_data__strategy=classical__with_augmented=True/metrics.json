@@ -1,0 +1,15 @@
+{
+  "model_name": "KNN_minilm",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9622,
+  "f1_macro": 0.957,
+  "f1_scam": 0.9719,
+  "precision_macro": 0.9628,
+  "recall_macro": 0.952,
+  "precision_scam": 0.9612,
+  "recall_scam": 0.9829,
+  "TP": 1262,
+  "TN": 595,
+  "FP": 51,
+  "FN": 22
+}

@@ -1,0 +1,32 @@
+{
+  "test": {
+    "model_name": "Transformer_bge",
+    "dataset_name": "test_internal",
+    "accuracy": 0.9698,
+    "f1_macro": 0.9658,
+    "f1_scam": 0.9776,
+    "precision_macro": 0.9691,
+    "recall_macro": 0.9627,
+    "precision_scam": 0.9713,
+    "recall_scam": 0.9839,
+    "TP": 1285,
+    "TN": 612,
+    "FP": 38,
+    "FN": 21
+  },
+  "val": {
+    "model_name": "Transformer_bge",
+    "dataset_name": "validation",
+    "accuracy": 0.9372,
+    "f1_macro": 0.8346,
+    "f1_scam": 0.7043,
+    "precision_macro": 0.7744,
+    "recall_macro": 0.955,
+    "precision_scam": 0.551,
+    "recall_scam": 0.9759,
+    "TP": 81,
+    "TN": 934,
+    "FP": 66,
+    "FN": 2
+  }
+}

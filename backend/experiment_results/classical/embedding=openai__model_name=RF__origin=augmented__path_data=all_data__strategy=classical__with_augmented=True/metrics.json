@@ -1,0 +1,15 @@
+{
+  "model_name": "RF_openai",
+  "dataset_name": "test_internal",
+  "accuracy": 0.9705,
+  "f1_macro": 0.9663,
+  "f1_scam": 0.9781,
+  "precision_macro": 0.9744,
+  "recall_macro": 0.9593,
+  "precision_scam": 0.9637,
+  "recall_scam": 0.993,
+  "TP": 1275,
+  "TN": 598,
+  "FP": 48,
+  "FN": 9
+}
