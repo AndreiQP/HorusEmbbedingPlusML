@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "$0")/../../.." && pwd -P)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
 cd "$PROJECT_ROOT"
 
 DRY_RUN=0
@@ -58,9 +59,9 @@ if [[ "$ONLY" != "report" ]]; then
     python -m machine_learning.studies make-slurm-grids
 fi
 
-SLURM_DIR="backend/slurm/studies"
-GRID_DIR="backend/experiment_results/transformer/studies/slurm_grids"
-EXPORTS="ALL,STUDY_FORCE=$FORCE"
+SLURM_DIR="$PROJECT_ROOT/backend/slurm/studies"
+GRID_DIR="$PROJECT_ROOT/backend/experiment_results/transformer/studies/slurm_grids"
+EXPORTS="ALL,HORUS_PROJECT_ROOT=$PROJECT_ROOT,STUDY_FORCE=$FORCE"
 MAIL_ARGS=()
 if [[ -n "${SLURM_MAIL_USER:-}" ]]; then
     MAIL_ARGS=(--mail-user="$SLURM_MAIL_USER" --mail-type=END,FAIL)

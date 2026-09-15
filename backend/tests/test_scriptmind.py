@@ -158,6 +158,20 @@ def test_notebook_is_valid_json() -> None:
     assert any("métricas" in "".join(cell.get("source", [])).lower() for cell in payload["cells"])
 
 
+def test_scriptmind_slurm_root_is_spool_safe() -> None:
+    slurm_dir = BACKEND / "slurm" / "scriptmind"
+    submit = (slurm_dir / "submit_scriptmind_pipeline.sh").read_text(encoding="utf-8")
+    assert "HORUS_PROJECT_ROOT=$PROJECT_ROOT" in submit
+    for name in (
+        "run_scriptmind_cpu.sbatch",
+        "run_scriptmind_annotation.sbatch",
+        "run_scriptmind_train.sbatch",
+        "run_scriptmind_evaluate.sbatch",
+    ):
+        script = (slurm_dir / name).read_text(encoding="utf-8")
+        assert 'PROJECT_ROOT="${HORUS_PROJECT_ROOT:-${SLURM_SUBMIT_DIR:-}}"' in script
+
+
 def test_predeclared_paired_statistics() -> None:
     result = mcnemar_exact([0, 0, 1, 1], [0, 1, 1, 0], [0, 0, 0, 1])
     assert result["discordant"] == 3

@@ -58,7 +58,7 @@ if [[ "$DRY_RUN" == "0" ]] && { should_run annotate || should_run adjudicate; };
     : "${GEMINI_API_KEY:?Export GEMINI_API_KEY before submitting Gemini stages}"
 fi
 
-EXPORTS="ALL,SCRIPTMIND_FORCE=$FORCE,SCRIPTMIND_NUM_SHARDS=32"
+EXPORTS="ALL,HORUS_PROJECT_ROOT=$PROJECT_ROOT,SCRIPTMIND_FORCE=$FORCE,SCRIPTMIND_NUM_SHARDS=32"
 LAST_DEP=""
 
 submit() {

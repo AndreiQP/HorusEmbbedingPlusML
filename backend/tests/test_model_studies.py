@@ -91,6 +91,25 @@ def test_standalone_submit_does_not_call_main_pipeline():
     assert script.index('if [[ "$DRY_RUN" == "1" ]]') < script.index("machine_learning.studies prepare")
 
 
+def test_slurm_study_paths_are_absolute_and_spool_safe():
+    slurm_dir = BACKEND / "slurm" / "studies"
+    submit = (slurm_dir / "submit_cached_model_studies.sh").read_text(encoding="utf-8")
+    assert 'SLURM_DIR="$PROJECT_ROOT/' in submit
+    assert 'GRID_DIR="$PROJECT_ROOT/' in submit
+    assert "HORUS_PROJECT_ROOT=$PROJECT_ROOT" in submit
+
+    array_runners = (
+        "run_dataset_size_cpu.sbatch",
+        "run_dataset_size_gpu.sbatch",
+        "run_transformer_explainability.sbatch",
+    )
+    for name in array_runners:
+        script = (slurm_dir / name).read_text(encoding="utf-8")
+        assert 'PROJECT_ROOT="${HORUS_PROJECT_ROOT:-${SLURM_SUBMIT_DIR:-}}"' in script
+        assert 'GRID_FILE="$PROJECT_ROOT/$GRID_FILE"' in script
+        assert '[[ -r "$GRID_FILE" ]]' in script
+
+
 def test_unsupervised_selection_uses_only_internal_validation(tmp_path, monkeypatch):
     from machine_learning.studies import manifest as manifest_module
 

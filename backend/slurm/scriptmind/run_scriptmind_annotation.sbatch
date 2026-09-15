@@ -11,8 +11,12 @@ set -euo pipefail
 MODE="${1:?mode required: gemini|local|adjudicate}"
 SHARD_INDEX="${SLURM_ARRAY_TASK_ID:-0}"
 NUM_SHARDS="${SCRIPTMIND_NUM_SHARDS:-32}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
+PROJECT_ROOT="${HORUS_PROJECT_ROOT:-${SLURM_SUBMIT_DIR:-}}"
+if [[ -z "$PROJECT_ROOT" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
+fi
+PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd -P)"
 mkdir -p "$PROJECT_ROOT/slurm_logs/scriptmind"
 
 CONDA_SH="${HORUS_CONDA_SH:-/home/andrei.pinto/miniconda3/etc/profile.d/conda.sh}"

@@ -6,7 +6,12 @@
 #SBATCH --mem=16G
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "$0")/../../.." && pwd -P)"
+PROJECT_ROOT="${HORUS_PROJECT_ROOT:-${SLURM_SUBMIT_DIR:-}}"
+if [[ -z "$PROJECT_ROOT" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
+fi
+PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd -P)"
 cd "$PROJECT_ROOT"
 source /home/andrei.pinto/miniconda3/etc/profile.d/conda.sh
 conda activate env_py_3_12

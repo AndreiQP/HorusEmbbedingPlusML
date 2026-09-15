@@ -10,8 +10,12 @@ set -euo pipefail
 
 STAGE="${1:?stage required: audit|build|report|quality|judge}"
 STAGE_ARGUMENT="${2:-}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
+PROJECT_ROOT="${HORUS_PROJECT_ROOT:-${SLURM_SUBMIT_DIR:-}}"
+if [[ -z "$PROJECT_ROOT" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
+fi
+PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd -P)"
 mkdir -p "$PROJECT_ROOT/slurm_logs/scriptmind"
 
 CONDA_SH="${HORUS_CONDA_SH:-/home/andrei.pinto/miniconda3/etc/profile.d/conda.sh}"
