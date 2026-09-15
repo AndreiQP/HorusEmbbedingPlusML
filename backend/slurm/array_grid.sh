@@ -34,9 +34,19 @@ fi
 echo "[array_grid] grid=${GRID_FILE} task=${SLURM_ARRAY_TASK_ID} -> ${LINE}"
 
 source /home/andrei.pinto/miniconda3/etc/profile.d/conda.sh
+USE_GPU_ENV=0
+REQUIRE_CUDA=0
 if [[ "$FAMILY" == "transformer" ]]; then
+    USE_GPU_ENV=1
+    [[ "$LINE" != *"--mode finalize"* ]] && REQUIRE_CUDA=1
+elif [[ "$LINE" == *"--model lunar"* || "$LINE" == *"--model svdd"* ]]; then
+    USE_GPU_ENV=1
+    REQUIRE_CUDA=1
+fi
+
+if [[ "$USE_GPU_ENV" == "1" ]]; then
     conda activate env_gpu_final
-    if [[ "$LINE" != *"--mode finalize"* ]]; then
+    if [[ "$REQUIRE_CUDA" == "1" ]]; then
         python -c 'import torch, sys; sys.exit(0 if torch.cuda.is_available() else "ERRO: GPU CUDA indisponível no env_gpu_final")'
     fi
 else
