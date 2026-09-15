@@ -33,7 +33,16 @@ if [[ "${FORCE_RETRAIN:-0}" == "1" && "$LINE" != *"--mode leaderboard"* ]]; then
 fi
 echo "[array_grid] grid=${GRID_FILE} task=${SLURM_ARRAY_TASK_ID} -> ${LINE}"
 
-source /home/andrei.pinto/miniconda3/etc/profile.d/conda.sh && conda activate env_py_3_12
+source /home/andrei.pinto/miniconda3/etc/profile.d/conda.sh
+if [[ "$FAMILY" == "transformer" ]]; then
+    conda activate env_gpu_final
+    if [[ "$LINE" != *"--mode finalize"* ]]; then
+        python -c 'import torch, sys; sys.exit(0 if torch.cuda.is_available() else "ERRO: GPU CUDA indisponível no env_gpu_final")'
+    fi
+else
+    conda activate env_py_3_12
+fi
+export PYTHONUNBUFFERED=1
 cd backend
 
 # Cada linha do grid já vem no formato: --mode ... --model ... --embedding ... --dim ...

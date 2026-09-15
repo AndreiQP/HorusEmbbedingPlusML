@@ -75,9 +75,9 @@ def _build_anomaly_model(model_type: str, **kwargs):
             lr=kwargs.get("lr", 0.001),
             wd=kwargs.get("weight_decay", 0.1),
             n_epochs=kwargs.get("n_epochs", 200),
-            batch_size=kwargs.get("batch_size", 64),
             contamination=kwargs.get("contamination", 0.1),
-            device=kwargs.get("device", None),
+            n_jobs=kwargs.get("n_jobs", -1),
+            random_state=kwargs.get("random_state", 42),
         )
     if model_type == "svdd":
         from .svdd_torch import DeepSVDD
