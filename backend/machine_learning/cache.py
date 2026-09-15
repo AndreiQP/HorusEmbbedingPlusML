@@ -33,9 +33,11 @@ Estrutura de pastas em experiment_results/:
 from __future__ import annotations
 import os
 import json
+import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Any
 import pandas as pd
+import numpy as np
 
 _BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _EXPERIMENT_RESULTS_DIR = os.path.join(_BACKEND_DIR, "experiment_results")
@@ -68,6 +70,16 @@ class ModelCache:
     Gerencia a persistência e carregamento de modelos e experimentos exclusivamente
     a partir de experiment_results/.
     """
+
+    @staticmethod
+    def git_commit() -> str:
+        try:
+            return subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], cwd=os.path.dirname(_BACKEND_DIR),
+                text=True, stderr=subprocess.DEVNULL,
+            ).strip()
+        except Exception:
+            return "unknown"
 
     # ── Classical ML ─────────────────────────────────────────────
 
@@ -218,33 +230,42 @@ class ModelCache:
         return os.path.join(_EXPERIMENT_RESULTS_DIR, "unsupervised", folder, "reducer.pkl")
 
     @staticmethod
+    def scaler_path(embedding: str, model_type: str, dim: int, reducer: str = "pca", params_hash: str = "default") -> str:
+        folder = ModelCache.unsupervised_folder(embedding, model_type, dim, reducer, params_hash)
+        return os.path.join(_EXPERIMENT_RESULTS_DIR, "unsupervised", folder, "scaler.pkl")
+
+    @staticmethod
     def unsupervised_exists(embedding: str, model_type: str, dim: int, reducer: str = "pca", params_hash: str = "default") -> bool:
         model_ok   = os.path.exists(ModelCache.unsupervised_path(embedding, model_type, dim, reducer, params_hash))
         reducer_ok = os.path.exists(ModelCache.reducer_path(embedding, model_type, dim, reducer, params_hash))
-        return model_ok and reducer_ok
+        scaler_ok = os.path.exists(ModelCache.scaler_path(embedding, model_type, dim, reducer, params_hash))
+        return model_ok and reducer_ok and scaler_ok
 
     @staticmethod
     def unsupervised_load(embedding: str, model_type: str, dim: int, reducer: str = "pca", params_hash: str = "default"):
         import joblib
         model_path   = ModelCache.unsupervised_path(embedding, model_type, dim, reducer, params_hash)
         reducer_path = ModelCache.reducer_path(embedding, model_type, dim, reducer, params_hash)
-        if not os.path.exists(model_path) or not os.path.exists(reducer_path):
+        scaler_path = ModelCache.scaler_path(embedding, model_type, dim, reducer, params_hash)
+        if not os.path.exists(model_path) or not os.path.exists(reducer_path) or not os.path.exists(scaler_path):
             raise FileNotFoundError(
-                f"Modelo ou redutor não encontrado:\n  {model_path}\n  {reducer_path}"
+                f"Modelo, redutor ou scaler não encontrado:\n  {model_path}\n  {reducer_path}\n  {scaler_path}"
             )
         print(f"[cache] Carregando {model_type.upper()} + {reducer.upper()} ({dim}d): {embedding}")
-        return joblib.load(model_path), joblib.load(reducer_path)
+        return joblib.load(model_path), joblib.load(reducer_path), joblib.load(scaler_path)
 
     @staticmethod
-    def unsupervised_save(model, reducer, embedding: str, model_type: str, dim: int, reducer_type: str = "pca", params_hash: str = "default"):
+    def unsupervised_save(model, reducer, scaler, embedding: str, model_type: str, dim: int, reducer_type: str = "pca", params_hash: str = "default"):
         import joblib
         folder = ModelCache.unsupervised_folder(embedding, model_type, dim, reducer_type, params_hash)
         d = os.path.join(_EXPERIMENT_RESULTS_DIR, "unsupervised", folder)
         os.makedirs(d, exist_ok=True)
         model_path   = os.path.join(d, "model.pkl")
         reducer_path = os.path.join(d, "reducer.pkl")
+        scaler_path = os.path.join(d, "scaler.pkl")
         joblib.dump(model, model_path)
         joblib.dump(reducer, reducer_path)
+        joblib.dump(scaler, scaler_path)
         print(f"[cache] {model_type.upper()} salvo: {os.path.relpath(model_path, _BACKEND_DIR)}")
         print(f"[cache] {reducer_type.upper()} salvo: {os.path.relpath(reducer_path, _BACKEND_DIR)}")
 
@@ -327,14 +348,17 @@ class ModelCache:
         return pd.read_csv(path)
 
     @staticmethod
-    def save_predictions(strategy: str, run_id: str, dataset_name: str, y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray):
+    def save_predictions(strategy: str, run_id: str, dataset_name: str, y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, sample_ids: Optional[np.ndarray] = None):
         """Salva arrays de predição em formato .npz no diretório do experimento."""
         import numpy as np
         d = _exp_dir(strategy, run_id)
         os.makedirs(d, exist_ok=True)
         filename = f"predictions_{dataset_name}.npz"
         path = os.path.join(d, filename)
-        np.savez_compressed(path, y_true=y_true, y_pred=y_pred, y_prob=y_prob)
+        payload = {"y_true": y_true, "y_pred": y_pred, "y_prob": y_prob}
+        if sample_ids is not None:
+            payload["sample_ids"] = np.asarray(sample_ids).astype(str)
+        np.savez_compressed(path, **payload)
         print(f"[cache] Predições ({dataset_name}) salvas: {os.path.relpath(path, _BACKEND_DIR)}")
 
     @staticmethod
@@ -346,6 +370,15 @@ class ModelCache:
             return None, None, None
         data = np.load(path)
         return data["y_true"], data["y_pred"], data["y_prob"]
+
+    @staticmethod
+    def load_prediction_bundle(strategy: str, run_id: str, dataset_name: str) -> Dict[str, np.ndarray]:
+        """Carrega predições cacheadas, incluindo IDs quando presentes."""
+        path = os.path.join(_exp_dir(strategy, run_id), f"predictions_{dataset_name}.npz")
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Predições ausentes: {path}")
+        with np.load(path) as data:
+            return {key: data[key] for key in data.files}
 
     @staticmethod
     def artifacts_dir(strategy: str, run_id: str) -> str:

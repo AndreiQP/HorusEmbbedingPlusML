@@ -54,7 +54,10 @@ from .transformer.runner import (
     evaluate_ensemble,
     evaluate_ensemble_from_results,
     plot_ensemble_diagnostics,
-    learning_curve_transformer,
+    run_transformer_search,
+    run_transformer_finalist,
+    finalize_transformer_pipeline,
+    load_transformer_pipeline_summary,
 )
 from .unsupervised.runner import (
     train_anomaly,
@@ -62,6 +65,9 @@ from .unsupervised.runner import (
     compare_dimensions_anomaly,
     learning_curve_anomaly,
     grid_search_anomaly,
+    finalize_anomaly_model,
+    load_anomaly_summary,
+    build_unsupervised_leaderboard,
 )
 from .unsupervised.text_runner import train_cvdd, train_date
 
@@ -84,8 +90,10 @@ __all__ = [
 
 
     "load_all_transformer_results", "evaluate_ensemble", "evaluate_ensemble_from_results",
-    "plot_ensemble_diagnostics", "learning_curve_transformer",
-    "train_anomaly", "learning_curve_anomaly", "grid_search_anomaly", "train_all_anomaly", "compare_dimensions_anomaly",
+    "plot_ensemble_diagnostics", "run_transformer_search", "run_transformer_finalist",
+    "finalize_transformer_pipeline", "load_transformer_pipeline_summary",
+    "train_anomaly", "learning_curve_anomaly", "grid_search_anomaly", "finalize_anomaly_model",
+    "load_anomaly_summary", "build_unsupervised_leaderboard", "train_all_anomaly", "compare_dimensions_anomaly",
     "train_cvdd", "train_date",
 ]
 

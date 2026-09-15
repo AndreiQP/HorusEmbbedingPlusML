@@ -3,7 +3,6 @@ machine_learning/unsupervised/runner.py
 -----------------------------------------
 Runner para modelos de detecção de anomalias sobre embeddings + PCA/UMAP
 (OCSVM, Isolation Forest, LOF, LUNAR, Deep SVDD).
-Preserva todos os modelos existentes em experiment_results/unsupervised/.
 
 Funções principais:
   train_anomaly()            -> treina um modelo + PCA/UMAP, retorna ExperimentResult
@@ -16,6 +15,7 @@ CVDD e DATE (modelos baseados em texto bruto + BGE) estão em cvdd.py e date_mod
 from __future__ import annotations
 import os
 import sys
+import json
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
@@ -24,10 +24,15 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
 
-from ..data import load_ham_only, load_single_embedding
+from ..data import load_ham_only, load_single_embedding, get_shared_split_indices
 from ..evaluation import compute_metrics
 from ..cache import ModelCache, _run_id
 from ..result import ExperimentResult
+
+PCA_DIMS = [25, 60, 100, 150, 200, 250, 300, 500, 750, 1000]
+FINAL_SEEDS = [42, 52, 62]
+UNSUPERVISED_MODELS = ["ocsvm", "iforest", "lof", "lunar", "svdd"]
+UNSUPERVISED_EMBEDDINGS = ["voyage", "openai", "e5", "bge", "minilm"]
 
 
 def _build_anomaly_model(model_type: str, **kwargs):
@@ -44,7 +49,7 @@ def _build_anomaly_model(model_type: str, **kwargs):
         return IsolationForest(
             n_estimators=kwargs.get("n_estimators", 500),
             contamination=kwargs.get("contamination", 0.1),
-            random_state=42,
+            random_state=kwargs.get("random_state", 42),
             n_jobs=kwargs.get("n_jobs", -1),
         )
     if model_type == "lof":
@@ -70,10 +75,17 @@ def _build_anomaly_model(model_type: str, **kwargs):
             lr=kwargs.get("lr", 0.001),
             wd=kwargs.get("weight_decay", 0.1),
             n_epochs=kwargs.get("n_epochs", 200),
+            batch_size=kwargs.get("batch_size", 64),
             contamination=kwargs.get("contamination", 0.1),
+            device=kwargs.get("device", None),
         )
     if model_type == "svdd":
         from .svdd_torch import DeepSVDD
+        try:
+            import torch
+            default_device = "cuda" if torch.cuda.is_available() else "cpu"
+        except ImportError:
+            default_device = "cpu"
         return DeepSVDD(
             latent_dim=kwargs.get("latent_dim", 32),
             hidden_dims=kwargs.get("hidden_dims", [128, 64]),
@@ -82,6 +94,8 @@ def _build_anomaly_model(model_type: str, **kwargs):
             weight_decay=kwargs.get("weight_decay", 1e-6),
             n_epochs=kwargs.get("n_epochs", 100),
             batch_size=kwargs.get("batch_size", 128),
+            random_state=kwargs.get("random_state", 42),
+            device=kwargs.get("device", default_device),
         )
 
     raise ValueError(
@@ -144,6 +158,8 @@ def train_anomaly(
     reducer: str = "pca",
     test_size: float = 0.20,
     val_size: float = 0.10,
+    seed: int = 42,
+    split_seed: int = 42,
     force_retrain: bool = False,
     **model_kwargs,
 ) -> ExperimentResult:
@@ -152,74 +168,84 @@ def train_anomaly(
 
     - Realiza split 3-way (treino / validação / teste, ex: 70%/10%/20%) dentro do
       dataset_train, na mesma convenção usada por classical/fcnn/transformer.
-    - Treina o scaler, PCA/UMAP e o modelo SOMENTE com as amostras Ham (label=0) do split de treino.
-    - Avalia em treino, validação interna (tuning), teste interno (holdout final) e na
-      validação externa (dataset_validation — comportamento em produção/vida real).
+    Esta função é a etapa final, posterior ao grid: ajusta scaler, redutor e modelo
+    nas amostras Ham de treino + validação interna e avalia o mesmo artefato no
+    teste interno e no dataset_validation. O grid é responsabilidade exclusiva de
+    grid_search_anomaly().
     """
     config = {
         "strategy": "unsupervised",
         "embedding": embedding, "model_type": model_type,
         "pca_dim": pca_dim, "reducer": reducer, "path_data": path_data,
         "test_size": test_size, "val_size": val_size,
+        "seed": seed, "split_seed": split_seed,
         "params": "_".join(f"{k}={v}" for k, v in sorted(model_kwargs.items())),
     }
     run_id = _run_id(config)
-    params_hash = ModelCache.params_hash(model_kwargs)
+    cache_params = {
+        **model_kwargs, "seed": seed, "split_seed": split_seed,
+        "test_size": test_size, "val_size": val_size, "path_data": path_data,
+    }
+    params_hash = ModelCache.params_hash(cache_params)
 
     # ── Cache check ──────────────────────────────────────────────
-    if not force_retrain and ModelCache.unsupervised_exists(embedding, model_type, pca_dim, reducer, params_hash):
-        print(f"[unsupervised] Cache hit: {embedding}_{model_type}_{pca_dim} (params={params_hash})")
-        model, reducer_obj = ModelCache.unsupervised_load(embedding, model_type, pca_dim, reducer, params_hash)
+    # O cache leve é suficiente para análise/notebook e pode vir do Git sem os
+    # artefatos pesados do modelo. Um retrain só é necessário se esses resultados
+    # também estiverem ausentes ou se force_retrain=True.
+    if not force_retrain:
         saved_metrics = ModelCache.load_metrics("unsupervised", run_id)
-        saved_history = ModelCache.load_history("unsupervised", run_id)
-        y_val, y_pred_val, y_score_val = ModelCache.load_predictions("unsupervised", run_id, "validation_external")
-        extra = {"pca_reducer": reducer_obj}
-        if saved_metrics:
-            if isinstance(saved_metrics, dict):
-                rows = list(saved_metrics.values()) if not ("dataset_name" in saved_metrics) else [saved_metrics]
-                df_metrics = pd.DataFrame(rows)
-            elif isinstance(saved_metrics, list):
-                df_metrics = pd.DataFrame(saved_metrics)
-            else:
-                df_metrics = pd.DataFrame()
-        else:
-            df_metrics = pd.DataFrame()
-
-        return ExperimentResult(
-            strategy="unsupervised", config=config, model=model,
-            df_metrics=df_metrics,
-            df_history=saved_history if saved_history is not None else pd.DataFrame(),
-            y_true=y_val, y_pred=y_pred_val, y_prob=y_score_val,
-            extra=extra,
-            artifacts_dir=ModelCache.artifacts_dir("unsupervised", run_id),
+        y_val, y_pred_val, y_score_val = ModelCache.load_predictions(
+            "unsupervised", run_id, "validation_external"
         )
+        y_test, _, _ = ModelCache.load_predictions("unsupervised", run_id, "test_internal")
+        if saved_metrics and y_val is not None and y_test is not None:
+            print(f"[unsupervised] Cache leve: {embedding}_{model_type}_{pca_dim} (seed={seed})")
+            return ExperimentResult(
+                strategy="unsupervised", config=config, model=None,
+                df_metrics=pd.DataFrame(list(saved_metrics.values())),
+                y_true=y_val, y_pred=y_pred_val, y_prob=y_score_val,
+                artifacts_dir=ModelCache.artifacts_dir("unsupervised", run_id),
+            )
 
     # ── Dados de treino/val/teste ────────────────────────────────
     print(f"\n[unsupervised] Treinando: {embedding}_{model_type}_{pca_dim}d_{reducer}")
-    X_all, y_all = load_single_embedding("train", path_data, embedding, with_augmented=False)
-
-    # Split 3-way estratificado: teste primeiro, depois treino/validação do restante
-    X_tr_full, X_te, y_tr_full, y_te = train_test_split(
-        X_all, y_all, test_size=test_size, random_state=42, stratify=y_all
+    X_all, y_all, sample_ids = load_single_embedding(
+        "train", path_data, embedding, with_augmented=False, return_ids=True
     )
-    X_tr, X_va, y_tr, y_va = train_test_split(
-        X_tr_full, y_tr_full, test_size=val_size / (1 - test_size), random_state=42, stratify=y_tr_full
+    idx_tr, idx_va, idx_te = get_shared_split_indices(
+        "unsupervised", sample_ids, y_all, test_size, val_size, split_seed
     )
+    X_tr, y_tr = X_all[idx_tr], y_all[idx_tr]
+    X_va, y_va = X_all[idx_va], y_all[idx_va]
+    X_te, y_te = X_all[idx_te], y_all[idx_te]
 
-    # Treino SOMENTE com amostras Ham (label=0) do split de treino
-    X_ham_tr = X_tr[y_tr == 0]
+    # Finalista: refit em treino + validação interna, somente com Ham.
+    X_fit = np.concatenate([X_tr, X_va])
+    y_fit = np.concatenate([y_tr, y_va])
+    X_ham_fit = X_fit[y_fit == 0]
+
+    np.random.seed(seed)
+    try:
+        import torch
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    except ImportError:
+        pass
 
     # ── Redução dimensional (fit no Ham do treino) ───────────────
     scaler = StandardScaler()
-    X_ham_tr_scaled = scaler.fit_transform(X_ham_tr)
+    X_ham_tr_scaled = scaler.fit_transform(X_ham_fit)
 
-    effective_dim = min(pca_dim, len(X_ham_tr), X_ham_tr.shape[1])
+    effective_dim = min(pca_dim, len(X_ham_fit), X_ham_fit.shape[1])
     reducer_obj = _build_reducer(reducer, effective_dim)
     X_ham_tr_reduced = reducer_obj.fit_transform(X_ham_tr_scaled)
 
     # ── Treino do Modelo de Anomalias ─────────────────────────────
     print(f"[unsupervised] Fit params ({model_type}/{embedding}): {model_kwargs or 'defaults'}")
-    anom_model = _build_anomaly_model(model_type, **model_kwargs)
+    fit_kwargs = dict(model_kwargs)
+    fit_kwargs.setdefault("random_state", seed)
+    anom_model = _build_anomaly_model(model_type, **fit_kwargs)
     anom_model.fit(X_ham_tr_reduced)
 
     # ── Avaliação 1: Treino (Ham + Scam do split de treino) ──────
@@ -228,19 +254,13 @@ def train_anomaly(
     y_score_tr   = _anomaly_score(anom_model, X_tr_red, model_type)
     metrics_tr   = compute_metrics(y_tr, y_pred_tr, y_score=y_score_tr, model_name=f"{model_type.upper()}_{embedding}", dataset_name="train")
 
-    # ── Avaliação 2: Validação Interna (tuning, dentro do dataset_train) ─
-    X_va_red     = reducer_obj.transform(scaler.transform(X_va))
-    y_pred_va    = _anomaly_predict(anom_model, X_va_red, model_type)
-    y_score_va   = _anomaly_score(anom_model, X_va_red, model_type)
-    metrics_va   = compute_metrics(y_va, y_pred_va, y_score=y_score_va, model_name=f"{model_type.upper()}_{embedding}", dataset_name="val")
-
-    # ── Avaliação 3: Teste Interno (holdout final, dentro do dataset_train) ─
+    # ── Avaliação 2: Teste Interno (holdout final, dentro do dataset_train) ─
     X_te_red     = reducer_obj.transform(scaler.transform(X_te))
     y_pred_te    = _anomaly_predict(anom_model, X_te_red, model_type)
     y_score_te   = _anomaly_score(anom_model, X_te_red, model_type)
     metrics_te   = compute_metrics(y_te, y_pred_te, y_score=y_score_te, model_name=f"{model_type.upper()}_{embedding}", dataset_name="test")
 
-    # ── Avaliação 4: Validação Externa (dataset_validation — vida real) ─
+    # ── Avaliação 3: Validação Externa (dataset_validation — vida real) ─
     X_val, y_val = load_single_embedding("validation", path_data, embedding, with_augmented=False)
     X_val_red    = reducer_obj.transform(scaler.transform(X_val))
     y_pred_val   = _anomaly_predict(anom_model, X_val_red, model_type)
@@ -248,11 +268,10 @@ def train_anomaly(
     metrics_val  = compute_metrics(y_val, y_pred_val, y_score=y_score_val, model_name=f"{model_type.upper()}_{embedding}", dataset_name="validation_external")
 
     print(f"  [train]              acc={metrics_tr['accuracy']:.4f}  f1_macro={metrics_tr['f1_macro']:.4f}  recall_scam={metrics_tr['recall_scam']:.4f}  roc_auc={metrics_tr['roc_auc']}  pr_auc={metrics_tr['pr_auc']}")
-    print(f"  [val interno]        acc={metrics_va['accuracy']:.4f}  f1_macro={metrics_va['f1_macro']:.4f}  recall_scam={metrics_va['recall_scam']:.4f}  roc_auc={metrics_va['roc_auc']}  pr_auc={metrics_va['pr_auc']}")
     print(f"  [test interno]       acc={metrics_te['accuracy']:.4f}  f1_macro={metrics_te['f1_macro']:.4f}  recall_scam={metrics_te['recall_scam']:.4f}  roc_auc={metrics_te['roc_auc']}  pr_auc={metrics_te['pr_auc']}")
     print(f"  [validação externa]  acc={metrics_val['accuracy']:.4f}  f1_macro={metrics_val['f1_macro']:.4f}  recall_scam={metrics_val['recall_scam']:.4f}  roc_auc={metrics_val['roc_auc']}  pr_auc={metrics_val['pr_auc']}")
 
-    df_metrics = pd.DataFrame([metrics_tr, metrics_va, metrics_te, metrics_val])
+    df_metrics = pd.DataFrame([metrics_tr, metrics_te, metrics_val])
 
     # ── Variância PCA (para plot) ─────────────────────────────────
     extra = {"pca_reducer": reducer_obj, "scaler": scaler}
@@ -260,8 +279,9 @@ def train_anomaly(
         extra["pca_variance"] = reducer_obj.explained_variance_ratio_
 
     # ── Salvar ────────────────────────────────────────────────────
-    ModelCache.unsupervised_save(anom_model, reducer_obj, embedding, model_type, pca_dim, reducer, params_hash)
-    ModelCache.save_metrics("unsupervised", run_id, {"train": metrics_tr, "val": metrics_va, "test": metrics_te, "validation_external": metrics_val})
+    ModelCache.unsupervised_save(anom_model, reducer_obj, scaler, embedding, model_type, pca_dim, reducer, params_hash)
+    ModelCache.save_metrics("unsupervised", run_id, {"train": metrics_tr, "test": metrics_te, "validation_external": metrics_val})
+    ModelCache.save_predictions("unsupervised", run_id, "test_internal", y_te, y_pred_te, y_score_te)
     ModelCache.save_predictions("unsupervised", run_id, "validation_external", y_val, y_pred_val, y_score_val)
 
     artifacts = ModelCache.artifacts_dir("unsupervised", run_id)
@@ -436,10 +456,24 @@ def _default_param_grid(model_type: str) -> Dict[str, List]:
     raise ValueError(f"Sem grade padrão para model_type='{model_type}'")
 
 
+def _configuration_complexity(model_type: str, params: dict) -> float:
+    """Escalar determinístico usado apenas no último critério de desempate."""
+    if model_type == "ocsvm":
+        return {"linear": 0.0, "rbf": 1.0, "poly": 2.0}.get(str(params.get("kernel")), 3.0)
+    if model_type == "iforest":
+        return float(params.get("n_estimators", 0))
+    if model_type in {"lof", "lunar"}:
+        return float(params.get("n_neighbors", 0))
+    if model_type == "svdd":
+        return float(params.get("latent_dim", 0))
+    return 0.0
+
+
 def grid_search_anomaly(
     embedding: str,
     model_type: str = "ocsvm",
     pca_dim: int = 1000,
+    pca_dims: Optional[List[int]] = None,
     path_data: str = "all_data",
     param_grid: Optional[Dict[str, List]] = None,
     test_size: float = 0.20,
@@ -450,10 +484,9 @@ def grid_search_anomaly(
     Grid Search de hiperparâmetros para qualquer modelo suportado
     ('ocsvm', 'iforest', 'lof', 'lunar', 'svdd').
 
-    A seleção do melhor combo usa o split de VALIDAÇÃO INTERNA (holdout de
-    dataset_train, mesma convenção de train_anomaly) — a validação externa
-    (dataset_validation) é reportada só como conferência, nunca para escolher
-    hiperparâmetros (evita vazamento do conjunto "vida real" no tuning).
+    A seleção cruza dimensão PCA e hiperparâmetros usando exclusivamente a
+    validação interna. Teste interno e dataset_validation não são carregados
+    durante o grid search.
 
     Args:
         param_grid: dict {hiperparametro: [valores]}. Se None, usa a grade padrão do model_type.
@@ -465,10 +498,12 @@ def grid_search_anomaly(
     import itertools
 
     param_grid = param_grid or _default_param_grid(model_type)
+    pca_dims = pca_dims or [pca_dim]
     grid_token = repr(sorted((key, tuple(str(value) for value in values)) for key, values in param_grid.items()))
     config = {
         "strategy": "unsupervised_gs",
-        "embedding": embedding, "model_type": model_type, "pca_dim": pca_dim,
+        "embedding": embedding, "model_type": model_type, "pca_dims": str(pca_dims),
+        "path_data": path_data, "reducer": "pca", "split_seed": 42,
         "test_size": test_size, "val_size": val_size,
         "param_grid": grid_token,
     }
@@ -478,7 +513,10 @@ def grid_search_anomaly(
         saved = ModelCache.load_history("unsupervised", f"gs_{run_id}")
         if saved is not None and not saved.empty:
             print("[unsupervised_gs] Cache hit — grid search")
-            best_saved = saved.sort_values("internal_val_f1", ascending=False).iloc[0]
+            best_saved = saved.sort_values(
+                ["internal_val_f1_macro", "internal_val_pr_auc", "internal_val_recall_scam", "pca_dim", "_complexity"],
+                ascending=[False, False, False, True, True],
+            ).iloc[0]
             return ExperimentResult(
                 strategy="unsupervised", config=config, df_history=saved,
                 df_metrics=pd.DataFrame([best_saved.to_dict()]),
@@ -487,74 +525,83 @@ def grid_search_anomaly(
 
     param_names = list(param_grid.keys())
 
-    X_all, y_all = load_single_embedding("train", path_data, embedding, with_augmented=False)
-    X_tr_full, X_te, y_tr_full, y_te = train_test_split(
-        X_all, y_all, test_size=test_size, random_state=42, stratify=y_all
+    X_all, y_all, sample_ids = load_single_embedding(
+        "train", path_data, embedding, with_augmented=False, return_ids=True
     )
-    X_tr, X_va, y_tr, y_va = train_test_split(
-        X_tr_full, y_tr_full, test_size=val_size / (1 - test_size), random_state=42, stratify=y_tr_full
+    idx_tr, idx_va, _ = get_shared_split_indices(
+        "unsupervised", sample_ids, y_all, test_size, val_size, 42
     )
+    X_tr, y_tr = X_all[idx_tr], y_all[idx_tr]
+    X_va, y_va = X_all[idx_va], y_all[idx_va]
     X_ham_tr = X_tr[y_tr == 0]
-    X_ext_val, y_ext_val = load_single_embedding("validation", path_data, embedding, with_augmented=False)
-
     scaler = StandardScaler()
     X_ham_sc = scaler.fit_transform(X_ham_tr)
-    effective_dim = min(pca_dim, len(X_ham_tr), X_ham_tr.shape[1])
-    reducer  = PCA(n_components=effective_dim, random_state=42)
-    X_ham_red = reducer.fit_transform(X_ham_sc)
-    X_va_red      = reducer.transform(scaler.transform(X_va))
-    X_te_red      = reducer.transform(scaler.transform(X_te))
-    X_ext_val_red = reducer.transform(scaler.transform(X_ext_val))
 
     rows = []
-    grid = list(itertools.product(*param_grid.values()))
-    for i, combo in enumerate(grid):
-        kwargs = dict(zip(param_names, combo))
-        try:
-            model = _build_anomaly_model(model_type, **kwargs)
-            model.fit(X_ham_red)
-
-            y_pred_va = _anomaly_predict(model, X_va_red, model_type)
-            y_score_va = _anomaly_score(model, X_va_red, model_type)
-            m_va = compute_metrics(y_va, y_pred_va, y_score=y_score_va)
-
-            y_pred_te = _anomaly_predict(model, X_te_red, model_type)
-            y_score_te = _anomaly_score(model, X_te_red, model_type)
-            m_te = compute_metrics(y_te, y_pred_te, y_score=y_score_te)
-
-            y_pred_ext = _anomaly_predict(model, X_ext_val_red, model_type)
-            y_score_ext = _anomaly_score(model, X_ext_val_red, model_type)
-            m_ext = compute_metrics(y_ext_val, y_pred_ext, y_score=y_score_ext)
-
-            row = {k: (str(v) if not isinstance(v, (int, float)) else v) for k, v in kwargs.items()}
-            row.update({
-                # usado para ranquear/selecionar o melhor combo (holdout interno)
-                "internal_val_f1": m_va["f1_macro"], "internal_val_recall_scam": m_va["recall_scam"],
-                "internal_val_roc_auc": m_va["roc_auc"], "internal_val_pr_auc": m_va["pr_auc"],
-                # conferência (holdout interno final, não usado na seleção)
-                "test_f1": m_te["f1_macro"], "test_recall_scam": m_te["recall_scam"],
-                "test_roc_auc": m_te["roc_auc"], "test_pr_auc": m_te["pr_auc"],
-                # informativo apenas — NUNCA usado para escolher hiperparâmetros
-                "external_val_f1": m_ext["f1_macro"], "external_val_recall_scam": m_ext["recall_scam"],
-                "external_val_roc_auc": m_ext["roc_auc"], "external_val_pr_auc": m_ext["pr_auc"],
-            })
-            rows.append(row)
-            if (i + 1) % 5 == 0:
-                print(f"  [gs] {i+1}/{len(grid)} | {kwargs} -> internal_val_f1={m_va['f1_macro']:.4f} internal_val_pr_auc={m_va['pr_auc']}")
-        except Exception as e:
-            print(f"  [gs] Erro: {kwargs} -> {e}")
+    param_combos = list(itertools.product(*param_grid.values()))
+    if model_type == "ocsvm":
+        param_combos = [
+            combo for combo in param_combos
+            if not (
+                dict(zip(param_names, combo)).get("kernel") == "linear"
+                and dict(zip(param_names, combo)).get("gamma") != "scale"
+            )
+        ]
+    total = len(pca_dims) * len(param_combos)
+    completed = 0
+    for dim in pca_dims:
+        effective_dim = min(dim, len(X_ham_tr), X_ham_tr.shape[1])
+        reducer = PCA(n_components=effective_dim, random_state=42)
+        X_ham_red = reducer.fit_transform(X_ham_sc)
+        X_va_red = reducer.transform(scaler.transform(X_va))
+        for combo in param_combos:
+            kwargs = dict(zip(param_names, combo))
+            completed += 1
+            try:
+                np.random.seed(42)
+                try:
+                    import torch
+                    torch.manual_seed(42)
+                    if torch.cuda.is_available():
+                        torch.cuda.manual_seed_all(42)
+                except ImportError:
+                    pass
+                model = _build_anomaly_model(model_type, **kwargs)
+                model.fit(X_ham_red)
+                y_pred_va = _anomaly_predict(model, X_va_red, model_type)
+                y_score_va = _anomaly_score(model, X_va_red, model_type)
+                m_va = compute_metrics(y_va, y_pred_va, y_score=y_score_va)
+                row = {
+                    "pca_dim": dim,
+                    "_complexity": _configuration_complexity(model_type, kwargs),
+                    **{k: (str(v) if not isinstance(v, (int, float)) else v) for k, v in kwargs.items()},
+                }
+                row.update({
+                    "internal_val_f1_macro": m_va["f1_macro"],
+                    "internal_val_recall_scam": m_va["recall_scam"],
+                    "internal_val_roc_auc": m_va["roc_auc"],
+                    "internal_val_pr_auc": m_va["pr_auc"],
+                })
+                rows.append(row)
+                if completed % 10 == 0:
+                    print(f"  [gs] {completed}/{total} | dim={dim} {kwargs} -> internal_val_f1_macro={m_va['f1_macro']:.4f}")
+            except Exception as e:
+                print(f"  [gs] Erro: dim={dim} {kwargs} -> {e}")
 
     if not rows:
         raise RuntimeError(
-            f"grid_search_anomaly: todas as {len(grid)} combinações falharam para "
+            f"grid_search_anomaly: todas as combinações falharam para "
             f"model_type='{model_type}' embedding='{embedding}' — veja os erros '[gs] Erro: ...' acima."
         )
 
-    df_gs = pd.DataFrame(rows).sort_values("internal_val_f1", ascending=False).reset_index(drop=True)
+    df_gs = pd.DataFrame(rows).sort_values(
+        ["internal_val_f1_macro", "internal_val_pr_auc", "internal_val_recall_scam", "pca_dim", "_complexity"],
+        ascending=[False, False, False, True, True],
+    ).reset_index(drop=True)
     best = df_gs.iloc[0]
     best_params = {k: best[k] for k in param_names}
     print(f"\n[gs] Melhores parâmetros ({model_type}), escolhidos pela validação interna: {best_params}")
-    print(f"     internal_val_f1={best['internal_val_f1']:.4f}  test_f1={best['test_f1']:.4f}  external_val_f1={best['external_val_f1']:.4f} (informativo)")
+    print(f"     dim={int(best['pca_dim'])} internal_val_f1_macro={best['internal_val_f1_macro']:.4f}")
 
     ModelCache.save_history("unsupervised", f"gs_{run_id}", df_gs)
 
@@ -564,6 +611,149 @@ def grid_search_anomaly(
         df_metrics=pd.DataFrame([best.to_dict()]),
         artifacts_dir=artifacts,
     )
+
+
+def _plain_value(value):
+    """Converte escalares numpy/pandas em valores serializáveis e estáveis."""
+    if pd.isna(value):
+        return None
+    return value.item() if hasattr(value, "item") else value
+
+
+def _pipeline_summary_path(model_type: str) -> str:
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "experiment_results", "unsupervised", "pipeline", model_type, "summary.json",
+    )
+
+
+def finalize_anomaly_model(
+    model_type: str,
+    embeddings: Optional[List[str]] = None,
+    pca_dims: Optional[List[int]] = None,
+    seeds: Optional[List[int]] = None,
+    path_data: str = "all_data",
+    force_retrain: bool = False,
+) -> dict:
+    """Materializa e resume os cinco finalistas de um algoritmo.
+
+    O grid já deve existir no cache. Para cada embedding, esta função lê o
+    vencedor da validação interna, treina/refaz as três seeds e agrega teste
+    interno e dataset_validation. O campeão é definido por val_f1_macro médio.
+    """
+    embeddings = embeddings or UNSUPERVISED_EMBEDDINGS
+    pca_dims = pca_dims or PCA_DIMS
+    seeds = seeds or FINAL_SEEDS
+    finalists = []
+
+    for embedding in embeddings:
+        grid_result = grid_search_anomaly(
+            embedding=embedding, model_type=model_type, pca_dims=pca_dims,
+            path_data=path_data, force_recompute=False,
+        )
+        best = grid_result.df_metrics.iloc[0].to_dict()
+        dim = int(best.pop("pca_dim"))
+        param_names = _default_param_grid(model_type).keys()
+        integer_params = {"n_neighbors", "n_estimators", "n_epochs", "latent_dim", "batch_size", "warmup_epochs"}
+        params = {
+            name: (int(best[name]) if name in integer_params else _plain_value(best[name]))
+            for name in param_names
+        }
+        seed_rows = []
+
+        for seed in seeds:
+            result = train_anomaly(
+                embedding=embedding, model_type=model_type, pca_dim=dim,
+                path_data=path_data, seed=seed, force_retrain=force_retrain,
+                **params,
+            )
+            test_metrics = _get_metrics_by_split(result.df_metrics, "test")
+            val_metrics = _get_metrics_by_split(result.df_metrics, "validation_external")
+            seed_rows.append({
+                "seed": seed,
+                "run_id": _run_id(result.config),
+                "test": {k: _plain_value(v) for k, v in test_metrics.items()},
+                "validation": {k: _plain_value(v) for k, v in val_metrics.items()},
+            })
+
+        def aggregate(split: str, metric: str) -> Tuple[float, float]:
+            values = [float(row[split][metric]) for row in seed_rows]
+            return float(np.mean(values)), float(np.std(values))
+
+        test_f1_mean, test_f1_std = aggregate("test", "f1_macro")
+        val_f1_mean, val_f1_std = aggregate("validation", "f1_macro")
+        val_pr_mean, _ = aggregate("validation", "pr_auc")
+        val_recall_mean, _ = aggregate("validation", "recall_scam")
+        finalists.append({
+            "embedding": embedding,
+            "pca_dim": dim,
+            "params": params,
+            "internal_val_f1_macro": _plain_value(best["internal_val_f1_macro"]),
+            "test_f1_macro_mean": test_f1_mean,
+            "test_f1_macro_std": test_f1_std,
+            "val_f1_macro_mean": val_f1_mean,
+            "val_f1_macro_std": val_f1_std,
+            "val_pr_auc_mean": val_pr_mean,
+            "val_recall_scam_mean": val_recall_mean,
+            "grid": json.loads(grid_result.df_history.to_json(orient="records")),
+            "seeds": seed_rows,
+        })
+
+    finalists.sort(
+        key=lambda row: (
+            -row["val_f1_macro_mean"], -row["val_pr_auc_mean"],
+            -row["val_recall_scam_mean"], row["pca_dim"],
+        )
+    )
+    summary = {
+        "protocol_version": 2,
+        "git_commit": ModelCache.git_commit(),
+        "selection": {
+            "hyperparameters": "internal_val_f1_macro",
+            "embedding": "val_f1_macro_mean",
+            "tie_breakers": ["pr_auc", "recall_scam", "lower_complexity"],
+        },
+        "model_type": model_type,
+        "pca_dims": pca_dims,
+        "seeds": seeds,
+        "finalists": finalists,
+        "winner": finalists[0],
+    }
+    path = _pipeline_summary_path(model_type)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(summary, handle, indent=2, ensure_ascii=False)
+    print(f"[unsupervised] Resumo final salvo: {path}")
+    return summary
+
+
+def load_anomaly_summary(model_type: str) -> dict:
+    """Loader estritamente cache-only usado pelo notebook."""
+    path = _pipeline_summary_path(model_type)
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"Cache final ausente para {model_type}: {path}. "
+            "Execute backend/slurm/submit_full_pipeline.sh --unsupervised."
+        )
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def build_unsupervised_leaderboard() -> pd.DataFrame:
+    """Compara os campeões dos cinco algoritmos usando somente seus resumos."""
+    rows = []
+    for model_type in UNSUPERVISED_MODELS:
+        winner = load_anomaly_summary(model_type)["winner"]
+        rows.append({"model_type": model_type, **{
+            key: winner[key] for key in (
+                "embedding", "pca_dim", "val_f1_macro_mean", "val_f1_macro_std",
+                "val_pr_auc_mean", "val_recall_scam_mean",
+            )
+        }})
+    return pd.DataFrame(rows).sort_values(
+        ["val_f1_macro_mean", "val_pr_auc_mean", "val_recall_scam_mean", "pca_dim"],
+        ascending=[False, False, False, True],
+    ).reset_index(drop=True)
 
 
 def _get_metrics_by_split(df_metrics: pd.DataFrame, split: str = "test") -> dict:

@@ -67,7 +67,7 @@ def _parse_params(pairs):
 def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Benchmark de modelos unsupervised de detecção de scam.")
     p.add_argument("--mode", required=True,
-                    choices=["train", "learning_curve", "grid_search", "train_all", "compare_dimensions"])
+                    choices=["train", "learning_curve", "grid_search", "finalize", "train_all", "compare_dimensions"])
     p.add_argument("--model", required=True,
                     choices=sorted(EMBEDDING_MODELS | TEXT_MODELS))
     p.add_argument("--embedding", default="bge", help="Embedder (ignorado para cvdd/date, que usam BGE fixo)")
@@ -78,6 +78,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--path-data", default="all_data", choices=["all_data", "suspect_turns"])
     p.add_argument("--test-size", type=float, default=0.20)
     p.add_argument("--val-size", type=float, default=0.10)
+    p.add_argument("--seed", type=int, default=42, help="Seed do treinamento final; o split permanece fixo em 42")
     p.add_argument("--force-retrain", action="store_true")
     p.add_argument("--param", action="append", default=[],
                     help="Hiperparâmetro específico do modelo, formato chave=valor (repetível)")
@@ -111,6 +112,7 @@ def main(argv=None) -> int:
                     embedding=args.embedding, model_type=args.model, pca_dim=args.dim,
                     path_data=args.path_data, reducer=args.reducer,
                     test_size=args.test_size, val_size=args.val_size,
+                    seed=args.seed,
                     force_retrain=args.force_retrain, **model_kwargs,
                 )
                 summary = result.df_metrics.to_dict(orient="records")
@@ -124,15 +126,15 @@ def main(argv=None) -> int:
             elif args.mode == "grid_search":
                 result = runner.grid_search_anomaly(
                     embedding=args.embedding, model_type=args.model, pca_dim=args.dim,
+                    pca_dims=args.dims,
                     path_data=args.path_data, force_recompute=args.force_retrain,
                     test_size=args.test_size, val_size=args.val_size,
                     param_grid=({k: [v] for k, v in model_kwargs.items()} or None),
                 )
                 # colunas de métrica não fazem parte dos hiperparâmetros do melhor combo
                 _metric_cols = {
-                    "internal_val_f1", "internal_val_recall_scam", "internal_val_roc_auc", "internal_val_pr_auc",
-                    "test_f1", "test_recall_scam", "test_roc_auc", "test_pr_auc",
-                    "external_val_f1", "external_val_recall_scam", "external_val_roc_auc", "external_val_pr_auc",
+                    "internal_val_f1_macro", "internal_val_recall_scam",
+                    "internal_val_roc_auc", "internal_val_pr_auc", "_complexity",
                 }
                 best_row = result.df_metrics.iloc[0].to_dict()
                 best_params = {k: v for k, v in best_row.items() if k not in _metric_cols}
@@ -141,6 +143,12 @@ def main(argv=None) -> int:
                     "best_metrics": {k: v for k, v in best_row.items() if k in _metric_cols},
                     "history": result.df_history.to_dict(orient="records"),
                 }
+            elif args.mode == "finalize":
+                summary = runner.finalize_anomaly_model(
+                    model_type=args.model, embeddings=args.embeddings,
+                    pca_dims=args.dims, path_data=args.path_data,
+                    force_retrain=args.force_retrain,
+                )
             elif args.mode == "train_all":
                 df = runner.train_all_anomaly(
                     model_type=args.model, pca_dim=args.dim, embeddings=args.embeddings,

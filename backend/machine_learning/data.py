@@ -11,6 +11,8 @@ Modos de carregamento:
 """
 from __future__ import annotations
 import os
+import json
+import hashlib
 from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
@@ -66,6 +68,27 @@ def _load_parquet(path: str, with_augmented: bool = True) -> pd.DataFrame:
     return df
 
 
+def _sample_ids_from_df(df: pd.DataFrame) -> np.ndarray:
+    """Obtém IDs estáveis; quando não há ID explícito, deriva-os do texto."""
+    id_column = next(
+        (name for name in ("conversation_id", "chat_id", "id", "uuid") if name in df.columns),
+        None,
+    )
+    if id_column is not None:
+        sample_ids = df[id_column].astype(str).to_numpy()
+    elif "text" in df.columns:
+        text_hash = df["text"].map(
+            lambda value: hashlib.sha256(str(value).encode("utf-8")).hexdigest()
+        )
+        occurrence = text_hash.groupby(text_hash).cumcount().astype(str)
+        sample_ids = (text_hash + ":" + occurrence).to_numpy()
+    else:
+        raise ValueError("Parquet sem coluna de ID e sem coluna 'text' para derivar IDs estáveis")
+    if len(np.unique(sample_ids)) != len(sample_ids):
+        raise ValueError("Não foi possível construir IDs únicos para o parquet")
+    return sample_ids.astype(str)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # API PÚBLICA
 # ─────────────────────────────────────────────────────────────────────────────
@@ -76,6 +99,7 @@ def load_single_embedding(
     embedding: str,
     with_augmented: bool = True,
     label_filter: Optional[int] = None,
+    return_ids: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Carrega um único embedding por conversa.
@@ -102,7 +126,70 @@ def load_single_embedding(
     X = np.array(df["text_embedded"].tolist(), dtype=np.float32)
     y = df["label"].values
     print(f"  [data] Shape: X={X.shape}, y={y.shape}")
-    return X, y
+    if not return_ids:
+        return X, y
+    return X, y, _sample_ids_from_df(df)
+
+
+def get_shared_split_indices(
+    family: str,
+    sample_ids: np.ndarray,
+    labels: np.ndarray,
+    test_size: float = 0.20,
+    val_size: float = 0.10,
+    seed: int = 42,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Cria/valida o manifesto de IDs compartilhado entre embeddings da família."""
+    from sklearn.model_selection import train_test_split
+
+    sample_ids = np.asarray(sample_ids).astype(str)
+    labels = np.asarray(labels).astype(int)
+    if len(sample_ids) != len(labels) or len(np.unique(sample_ids)) != len(sample_ids):
+        raise ValueError("sample_ids devem ser únicos e ter o mesmo tamanho de labels")
+    label_by_id = dict(zip(sample_ids.tolist(), labels.tolist()))
+    fingerprint = hashlib.sha256(
+        "\n".join(f"{key}:{label_by_id[key]}" for key in sorted(label_by_id)).encode("utf-8")
+    ).hexdigest()
+    manifest_dir = os.path.join(_BACKEND_DIR, "experiment_results", "protocol")
+    manifest_path = os.path.join(manifest_dir, f"{family}_split_manifest.json")
+
+    if os.path.exists(manifest_path):
+        with open(manifest_path, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+        if manifest.get("fingerprint") != fingerprint:
+            raise ValueError(
+                f"Dataset/IDs de {family} não coincidem com o manifesto {manifest_path}. "
+                "Remova o manifesto somente se a mudança do dataset for intencional."
+            )
+    else:
+        indices = np.arange(len(sample_ids))
+        train_val_idx, test_idx = train_test_split(
+            indices, test_size=test_size, random_state=seed, stratify=labels
+        )
+        train_idx, val_idx = train_test_split(
+            train_val_idx, test_size=val_size / (1 - test_size),
+            random_state=seed, stratify=labels[train_val_idx],
+        )
+        manifest = {
+            "protocol_version": 2, "family": family, "seed": seed,
+            "test_size": test_size, "val_size": val_size,
+            "fingerprint": fingerprint,
+            "train_ids": sample_ids[train_idx].tolist(),
+            "internal_validation_ids": sample_ids[val_idx].tolist(),
+            "test_ids": sample_ids[test_idx].tolist(),
+        }
+        os.makedirs(manifest_dir, exist_ok=True)
+        with open(manifest_path, "w", encoding="utf-8") as handle:
+            json.dump(manifest, handle, indent=2, ensure_ascii=False)
+
+    index_by_id = {sample_id: index for index, sample_id in enumerate(sample_ids)}
+    try:
+        return tuple(
+            np.asarray([index_by_id[sample_id] for sample_id in manifest[key]], dtype=int)
+            for key in ("train_ids", "internal_validation_ids", "test_ids")
+        )
+    except KeyError as exc:
+        raise ValueError(f"ID do manifesto {family} ausente no embedding atual: {exc}") from exc
 
 
 def load_ham_only(
@@ -177,6 +264,7 @@ def load_sequence_embeddings(
     split: str,
     embedding: str,
     with_augmented: bool = True,
+    return_ids: bool = False,
 ) -> Tuple[list, np.ndarray]:
     """
     Carrega embeddings como SEQUÊNCIA de mensagens por conversa.
@@ -216,7 +304,10 @@ def load_sequence_embeddings(
     labels = df["label"].values
     dims = [s.shape for s in sequences[:3]]
     print(f"  [data] {len(sequences)} conversas | Primeiras dims: {dims}")
-    return sequences, labels
+    if not return_ids:
+        return sequences, labels
+
+    return sequences, labels, _sample_ids_from_df(df)
 
 
 def get_embedding_dim(embedding: str) -> int:

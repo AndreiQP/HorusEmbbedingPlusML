@@ -9,14 +9,17 @@ backend/trained_models/*
 backend/datasets/
 backend/fcnn_trained/
 backup/
-experiment_results/
+/experiment_results/
 
 # Generated cluster logs and local connection probe
 slurm_logs/
 teste_codex_conexao.txt
+backend/slurm/grids/*_tuned.txt
+backend/slurm/grids/*_finalize.txt
+backend/slurm/grids/transformer.txt
 
-# Track lightweight experiment metrics and visualizations only
-!backend/experiment_results/
+# Ignore checkpoints/modelos e versiona somente o cache leve usado pelos notebooks.
+backend/experiment_results/**/*
 !backend/experiment_results/**/
 !backend/experiment_results/**/*.png
 !backend/experiment_results/**/*.jpg
@@ -25,14 +28,7 @@ teste_codex_conexao.txt
 !backend/experiment_results/**/*.pdf
 !backend/experiment_results/**/*.csv
 !backend/experiment_results/**/*.json
+!backend/experiment_results/**/*.npz
 
-backend/experiment_results/**/*.csv
-
-# Default-ignore all experiment artifacts, then allow lightweight outputs
-backend/experiment_results/**/*
-!backend/experiment_results/**/*.png
-!backend/experiment_results/**/*.jpg
-!backend/experiment_results/**/*.jpeg
-!backend/experiment_results/**/*.svg
-!backend/experiment_results/**/*.pdf
-!backend/experiment_results/**/*.json
+# Caches de predição da estrutura anterior não entram no novo retrain.
+backend/experiment_results/unsupervised/embedding=*/predictions_*.npz
