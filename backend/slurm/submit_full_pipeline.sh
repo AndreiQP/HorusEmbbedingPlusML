@@ -72,7 +72,6 @@ if [[ "$RUN_UNSUPERVISED" == "1" ]]; then
         "$SLURM_DIR/array_grid.sh" "$gpu_file")
     sbatch --export=ALL --job-name="unsup_finalize" \
         --dependency="afterok:${cpu_jobid}:${gpu_jobid}" --array="0-0" \
-        --cpus-per-task=2 --mem=4G \
         "$SLURM_DIR/array_grid.sh" "$GRIDS_DIR/unsupervised_finalize.txt"
 fi
 
@@ -83,6 +82,6 @@ if [[ "$RUN_TRANSFORMER" == "1" ]]; then
         --job-name="transformer_search" --array="0-$((n_lines - 1))" --gres=gpu:1 \
         "$SLURM_DIR/array_grid.sh" "$transformer_file" transformer)
     sbatch --export=ALL --job-name="transformer_finalize" \
-        --dependency="afterok:${finalist_jobid}" --array="0-0" --cpus-per-task=2 --mem=4G \
+        --dependency="afterok:${finalist_jobid}" --array="0-0" \
         "$SLURM_DIR/array_grid.sh" "$GRIDS_DIR/transformer_finalize.txt" transformer
 fi
