@@ -1,0 +1,11 @@
+# Install after the base requirements.txt, preferably in env_gpu_final.
+accelerate>=1.2
+bitsandbytes>=0.45
+bert-score>=0.3.13
+datasets>=3.2
+google-genai>=1.0
+peft>=0.14
+pytest>=8.0
+scipy>=1.13
+sentencepiece>=0.2
+transformers>=4.48

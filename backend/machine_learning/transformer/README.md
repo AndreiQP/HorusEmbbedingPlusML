@@ -12,6 +12,13 @@ São preservados os LRs já definidos: `voyage=2e-6`, `bge=1e-6` e `openai=1e-6`
 
 No `dataset_validation`, são comparados os três modelos, majority voting, média das probabilidades e soma de logits calibrados por temperatura. A temperatura é ajustada somente na validação interna. IDs e rótulos precisam estar perfeitamente alinhados antes do ensemble.
 
+## Estudos adicionais
+
+Curvas por tamanho, complementaridade, threshold `FN=0` e explicabilidade por
+head ficam isolados em `machine_learning/studies/`. Esses estudos reutilizam os
+finalistas e não executam novamente a busca Transformer. Consulte
+`machine_learning/studies/README.md` e o notebook `judge_decision.ipynb`.
+
 No cluster:
 
 ```bash

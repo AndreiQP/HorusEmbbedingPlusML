@@ -10,6 +10,13 @@ Importações rápidas:
 from .result import ExperimentResult
 from .cache import ModelCache
 from .thresholds import ThresholdCalibrator
+from .studies import (
+    StudyManifest, select_study_finalists,
+    run_transformer_dataset_size_study, run_unsupervised_dataset_size_study,
+    analyze_transformer_complementarity, run_transformer_threshold_study,
+    extract_transformer_head_attention, analyze_transformer_head_ablation,
+    build_transformer_explainability_report,
+)
 from .data import (
     load_single_embedding,
     load_concat_embeddings,
@@ -95,6 +102,10 @@ __all__ = [
     "finalize_transformer_pipeline", "load_transformer_pipeline_summary",
     "train_anomaly", "learning_curve_anomaly", "grid_search_anomaly", "finalize_anomaly_model",
     "load_anomaly_summary", "build_unsupervised_leaderboard", "train_all_anomaly", "compare_dimensions_anomaly",
+    "StudyManifest", "select_study_finalists", "run_transformer_dataset_size_study",
+    "run_unsupervised_dataset_size_study", "analyze_transformer_complementarity",
+    "run_transformer_threshold_study", "extract_transformer_head_attention",
+    "analyze_transformer_head_ablation", "build_transformer_explainability_report",
     "finalize_unsupervised_pipeline",
     "train_cvdd", "train_date",
 ]

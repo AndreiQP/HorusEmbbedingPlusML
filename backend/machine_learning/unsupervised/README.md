@@ -6,6 +6,13 @@ Para cada embedding, `grid_search_anomaly()` cruza as dimensões PCA `25, 60, 10
 
 O finalista de cada embedding é treinado novamente em treino + validação interna com as seeds `42`, `52` e `62`. O mesmo artefato é avaliado no teste interno e no `dataset_validation`. O embedding campeão de cada algoritmo e o campeão geral são escolhidos pela média de `val_f1_macro`.
 
+## Estudos adicionais
+
+O estudo cache-first em `machine_learning/studies/` seleciona separadamente os
+três campeões pela validação interna e produz curvas em 5%, 10%, 25%, 50%, 75%
+e 100% do Ham de ajuste. Não repete o grid search e não altera este ranking ou
+seus caches. As visualizações estão em `notebooks/unsupervised.ipynb`.
+
 Os IDs do split ficam em `backend/experiment_results/protocol/unsupervised_split_manifest.json`. Resultados finais, grids, métricas e referências às predições ficam nos resumos em `backend/experiment_results/unsupervised/pipeline/`.
 
 No cluster:
