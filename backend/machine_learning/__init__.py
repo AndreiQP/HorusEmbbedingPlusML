@@ -68,6 +68,7 @@ from .unsupervised.runner import (
     finalize_anomaly_model,
     load_anomaly_summary,
     build_unsupervised_leaderboard,
+    finalize_unsupervised_pipeline,
 )
 from .unsupervised.text_runner import train_cvdd, train_date
 
@@ -94,6 +95,7 @@ __all__ = [
     "finalize_transformer_pipeline", "load_transformer_pipeline_summary",
     "train_anomaly", "learning_curve_anomaly", "grid_search_anomaly", "finalize_anomaly_model",
     "load_anomaly_summary", "build_unsupervised_leaderboard", "train_all_anomaly", "compare_dimensions_anomaly",
+    "finalize_unsupervised_pipeline",
     "train_cvdd", "train_date",
 ]
 

@@ -1,21 +1,18 @@
 """
 backend/slurm/make_grid.py
 ------------------------------
-Gera arquivos temporários de grade em
-backend/experiment_results/slurm_grids/:
-  <model>_tuning.txt   -> um grid conjunto (dimensão + hiperparâmetros) por embedding.
-CVDD/DATE não têm tuning automatizado (grid_search não suportado para
-modelos de texto no CLI), então só geram <model>.txt.
+Gera grades agrupadas em backend/experiment_results/slurm_grids/.
+Cada linha corresponde a um job completo por algoritmo ou embedding, evitando
+um job SLURM por configuração individual.
 
 Uso:
     python3 backend/slurm/make_grid.py
 """
 import os
 
-EMBEDDING_MODELS = ["ocsvm", "iforest", "lof", "lunar", "svdd"]
-EMBEDDINGS = ["voyage", "openai", "e5", "bge", "minilm"]
+CPU_MODELS = ["ocsvm", "iforest", "lof"]
+GPU_MODELS = ["lunar", "svdd"]
 DIMS = [25, 60, 100, 150, 200, 250, 300, 500, 750, 1000]
-TEXT_MODELS = ["cvdd", "date"]
 TRANSFORMER_EMBEDDINGS = ["voyage", "bge", "openai"]
 
 _GRIDS_DIR = os.path.abspath(os.path.join(
@@ -25,22 +22,16 @@ _GRIDS_DIR = os.path.abspath(os.path.join(
 if __name__ == "__main__":
     os.makedirs(_GRIDS_DIR, exist_ok=True)
 
-    for model in EMBEDDING_MODELS:
-        dims = " ".join(str(dim) for dim in DIMS)
-        tuning_lines = [
-            f"--mode grid_search --model {model} --embedding {emb} --dims {dims}"
-            for emb in EMBEDDINGS
-        ]
-        tuning_path = os.path.join(_GRIDS_DIR, f"{model}_tuning.txt")
-        with open(tuning_path, "w") as f:
-            f.write("\n".join(tuning_lines) + "\n")
-        print(f"[make_grid] {tuning_path}: {len(tuning_lines)} combinações (tuning)")
-
-    for model in TEXT_MODELS:
-        path = os.path.join(_GRIDS_DIR, f"{model}.txt")
+    dims = " ".join(str(dim) for dim in DIMS)
+    for filename, models in (("unsupervised_cpu.txt", CPU_MODELS), ("unsupervised_gpu.txt", GPU_MODELS)):
+        path = os.path.join(_GRIDS_DIR, filename)
+        lines = [f"--mode finalize --model {model} --dims {dims}" for model in models]
         with open(path, "w") as f:
-            f.write(f"--mode train --model {model} --force-retrain\n")
-        print(f"[make_grid] {path}: 1 combinação")
+            f.write("\n".join(lines) + "\n")
+        print(f"[make_grid] {path}: {len(lines)} pipelines completas")
+
+    with open(os.path.join(_GRIDS_DIR, "unsupervised_finalize.txt"), "w") as f:
+        f.write("--mode leaderboard\n")
 
     transformer_path = os.path.join(_GRIDS_DIR, "transformer.txt")
     with open(transformer_path, "w") as f:

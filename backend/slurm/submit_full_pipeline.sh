@@ -1,5 +1,13 @@
 #!/bin/bash
-# Entrada única para o retrain completo. Os notebooks nunca treinam modelos.
+#SBATCH --job-name=all_models
+#SBATCH --output=slurm_logs/%x_%j.out
+#SBATCH --error=slurm_logs/%x_%j.err
+#SBATCH --time=2-00:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=20G
+#SBATCH --partition=l40s
+#SBATCH --mail-user=a169194@dac.unicamp.br
+#SBATCH --mail-type=BEGIN,END,FAIL
 set -euo pipefail
 
 EXPECTED_ROOT="/home/andrei.pinto/HorusEmbbedingPlusML"
@@ -37,41 +45,35 @@ python3 backend/slurm/make_grid.py
 
 SLURM_DIR="backend/slurm"
 GRIDS_DIR="backend/experiment_results/slurm_grids"
-UNSUPERVISED_MODELS=(ocsvm iforest lof lunar svdd)
-declare -A GRID_COUNTS=([ocsvm]=280 [iforest]=120 [lof]=160 [lunar]=270 [svdd]=240)
-
 if [[ "$DRY_RUN" == "1" ]]; then
     echo "[dry-run] force=$FORCE_RETRAIN"
     if [[ "$RUN_UNSUPERVISED" == "1" ]]; then
-        for model in "${UNSUPERVISED_MODELS[@]}"; do
-            gpu="CPU"
-            [[ "$model" == "lunar" || "$model" == "svdd" ]] && gpu="1 GPU"
-            echo "[dry-run] $model: 5 embeddings x ${GRID_COUNTS[$model]} combinações ($gpu)"
-            echo "          grid --afterok--> 15 finalistas (3 seeds) --afterok--> resumo"
-        done
+        echo "[dry-run] unsupervised: 3 jobs CPU + 2 jobs GPU + 1 consolidação = 6 jobs"
+        echo "          cada job de modelo executa internamente 5 grids, 15 finalistas e seu resumo"
     fi
     if [[ "$RUN_TRANSFORMER" == "1" ]]; then
-        echo "[dry-run] transformer: 3 embeddings x (12 arquitetura + 18 capacidade + 3 otimizador), 1 GPU cada"
-        echo "          busca sequencial -> 9 finalistas (3 seeds) --afterok--> ensembles"
+        echo "[dry-run] transformer: 3 jobs GPU + 1 consolidação = 4 jobs"
+        echo "          cada job executa internamente busca sequencial e 3 seeds"
     fi
+    [[ "$RUN_UNSUPERVISED" == "1" && "$RUN_TRANSFORMER" == "1" ]] && echo "[dry-run] TOTAL: 10 jobs na fila"
     exit 0
 fi
 
 if [[ "$RUN_UNSUPERVISED" == "1" ]]; then
-    for model in "${UNSUPERVISED_MODELS[@]}"; do
-        tuning_file="$GRIDS_DIR/${model}_tuning.txt"
-        n_lines=$(wc -l < "$tuning_file")
-        resource_args=()
-        if [[ "$model" == "lunar" || "$model" == "svdd" ]]; then
-            resource_args+=(--gres=gpu:1)
-        fi
-        tune_jobid=$(sbatch --parsable --export=ALL,FORCE_RETRAIN \
-            --job-name="unsup_tune_${model}" --array="0-$((n_lines - 1))" \
-            "${resource_args[@]}" "$SLURM_DIR/array_grid.sh" "$tuning_file")
-        sbatch --export=ALL,FORCE_RETRAIN --job-name="unsup_collect_${model}" \
-            --dependency="afterok:${tune_jobid}" \
-            "$SLURM_DIR/collect_and_train.sbatch" "$model"
-    done
+    cpu_file="$GRIDS_DIR/unsupervised_cpu.txt"
+    gpu_file="$GRIDS_DIR/unsupervised_gpu.txt"
+    cpu_count=$(wc -l < "$cpu_file")
+    gpu_count=$(wc -l < "$gpu_file")
+    cpu_jobid=$(sbatch --parsable --export=ALL,FORCE_RETRAIN \
+        --job-name="unsup_cpu" --array="0-$((cpu_count - 1))" \
+        "$SLURM_DIR/array_grid.sh" "$cpu_file")
+    gpu_jobid=$(sbatch --parsable --export=ALL,FORCE_RETRAIN \
+        --job-name="unsup_gpu" --array="0-$((gpu_count - 1))" --gres=gpu:1 \
+        "$SLURM_DIR/array_grid.sh" "$gpu_file")
+    sbatch --export=ALL --job-name="unsup_finalize" \
+        --dependency="afterok:${cpu_jobid}:${gpu_jobid}" --array="0-0" \
+        --cpus-per-task=2 --mem=4G \
+        "$SLURM_DIR/array_grid.sh" "$GRIDS_DIR/unsupervised_finalize.txt"
 fi
 
 if [[ "$RUN_TRANSFORMER" == "1" ]]; then

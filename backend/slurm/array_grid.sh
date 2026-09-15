@@ -28,7 +28,7 @@ mkdir -p backend/experiment_results/unsupervised slurm_logs
 GRID_FILE="${1:?informe o arquivo de grade em backend/experiment_results/slurm_grids}"
 FAMILY="${2:-unsupervised}"
 LINE="$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" "$GRID_FILE")"
-if [[ "${FORCE_RETRAIN:-0}" == "1" && "$LINE" != *"--mode finalize"* ]]; then
+if [[ "${FORCE_RETRAIN:-0}" == "1" && "$LINE" != *"--mode leaderboard"* ]]; then
     LINE="${LINE} --force-retrain"
 fi
 echo "[array_grid] grid=${GRID_FILE} task=${SLURM_ARRAY_TASK_ID} -> ${LINE}"

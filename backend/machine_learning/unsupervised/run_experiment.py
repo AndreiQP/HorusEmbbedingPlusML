@@ -67,8 +67,8 @@ def _parse_params(pairs):
 def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Benchmark de modelos unsupervised de detecção de scam.")
     p.add_argument("--mode", required=True,
-                    choices=["train", "learning_curve", "grid_search", "finalize", "train_all", "compare_dimensions"])
-    p.add_argument("--model", required=True,
+                    choices=["train", "learning_curve", "grid_search", "finalize", "leaderboard", "train_all", "compare_dimensions"])
+    p.add_argument("--model", required=False,
                     choices=sorted(EMBEDDING_MODELS | TEXT_MODELS))
     p.add_argument("--embedding", default="bge", help="Embedder (ignorado para cvdd/date, que usam BGE fixo)")
     p.add_argument("--embeddings", nargs="*", default=None, help="Lista de embedders (para train_all/compare_dimensions)")
@@ -87,13 +87,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None) -> int:
-    args = build_arg_parser().parse_args(argv)
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    if args.mode != "leaderboard" and not args.model:
+        parser.error("--model é obrigatório, exceto em --mode leaderboard")
     model_kwargs = _parse_params(args.param)
     is_text_model = args.model in TEXT_MODELS
 
     summary = {}
     try:
-        if is_text_model:
+        if args.mode == "leaderboard":
+            from . import runner
+            summary = runner.finalize_unsupervised_pipeline()
+        elif is_text_model:
             from . import text_runner
             train_fn = text_runner.train_cvdd if args.model == "cvdd" else text_runner.train_date
             if args.mode != "train":

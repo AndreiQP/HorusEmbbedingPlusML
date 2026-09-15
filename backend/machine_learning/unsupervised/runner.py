@@ -649,7 +649,7 @@ def finalize_anomaly_model(
     for embedding in embeddings:
         grid_result = grid_search_anomaly(
             embedding=embedding, model_type=model_type, pca_dims=pca_dims,
-            path_data=path_data, force_recompute=False,
+            path_data=path_data, force_recompute=force_retrain,
         )
         best = grid_result.df_metrics.iloc[0].to_dict()
         dim = int(best.pop("pca_dim"))
@@ -754,6 +754,27 @@ def build_unsupervised_leaderboard() -> pd.DataFrame:
         ["val_f1_macro_mean", "val_pr_auc_mean", "val_recall_scam_mean", "pca_dim"],
         ascending=[False, False, False, True],
     ).reset_index(drop=True)
+
+
+def finalize_unsupervised_pipeline() -> dict:
+    """Consolida os cinco campeões depois que os jobs por algoritmo terminarem."""
+    leaderboard = build_unsupervised_leaderboard()
+    summary = {
+        "protocol_version": 2,
+        "git_commit": ModelCache.git_commit(),
+        "selection_metric": "val_f1_macro_mean",
+        "leaderboard": json.loads(leaderboard.to_json(orient="records")),
+        "winner": json.loads(leaderboard.iloc[0].to_json()),
+    }
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "experiment_results", "unsupervised", "pipeline_summary.json",
+    )
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(summary, handle, indent=2, ensure_ascii=False)
+    print(f"[unsupervised] Consolidação final salva: {path}")
+    return summary
 
 
 def _get_metrics_by_split(df_metrics: pd.DataFrame, split: str = "test") -> dict:
