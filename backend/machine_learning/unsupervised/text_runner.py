@@ -35,18 +35,25 @@ def _run_text_model(
     force_retrain: bool = False,
     **model_kwargs,
 ) -> ExperimentResult:
-    params_hash = ModelCache.params_hash(model_kwargs)
+    # O dispositivo de execução não define o modelo treinado. Mantê-lo fora da
+    # chave de cache permite carregar o mesmo checkpoint no CPU ou na GPU para
+    # inferência e relatórios, sem disparar um novo treino por engano.
+    cache_kwargs = {key: value for key, value in model_kwargs.items() if key != "device"}
+    params_hash = ModelCache.params_hash(cache_kwargs)
     config = {
         "strategy": "unsupervised", "embedding": "bge", "model_type": model_type,
         "test_size": test_size, "val_size": val_size,
-        "params": "_".join(f"{k}={v}" for k, v in sorted(model_kwargs.items())),
+        "params": "_".join(f"{k}={v}" for k, v in sorted(cache_kwargs.items())),
     }
     run_id = _run_id(config)
 
     if not force_retrain and ModelCache.text_model_exists(model_type, "bge", params_hash):
         print(f"[unsupervised/text] Cache hit: {model_type}_bge (params={params_hash})")
-        state = ModelCache.text_model_load(model_type, "bge", params_hash=params_hash)
-        model = model_cls.load_state_dict(state)
+        device = model_kwargs.get("device", "cpu")
+        state = ModelCache.text_model_load(
+            model_type, "bge", map_location=device, params_hash=params_hash
+        )
+        model = model_cls.load_state_dict(state, device=device)
         saved_metrics = ModelCache.load_metrics("unsupervised", run_id)
         y_val, y_pred_val, y_score_val = ModelCache.load_predictions("unsupervised", run_id, "validation_external")
 
