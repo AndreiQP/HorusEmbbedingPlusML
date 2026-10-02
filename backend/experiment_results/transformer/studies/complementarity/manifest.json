@@ -1,0 +1,13 @@
+{
+  "study_manifest_hash": "7538ce451c99d4f3611174c3b8c8adff1286f21495555ac37c21e5fb43077346",
+  "analysis_hash": "f4dbcc60644a2efbc2fe71e4655ea9d5e17cac3c408f02465ce062ad17e7975e",
+  "seeds": [
+    42,
+    52,
+    62
+  ],
+  "splits": [
+    "test_internal",
+    "validation"
+  ]
+}

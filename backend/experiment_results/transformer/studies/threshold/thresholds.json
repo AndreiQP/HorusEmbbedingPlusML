@@ -1,0 +1,17 @@
+[
+  {
+    "seed": 42,
+    "threshold": 0.03860015049576759,
+    "calibration_split": "internal_validation"
+  },
+  {
+    "seed": 52,
+    "threshold": 0.05863542854785919,
+    "calibration_split": "internal_validation"
+  },
+  {
+    "seed": 62,
+    "threshold": 0.017878586426377296,
+    "calibration_split": "internal_validation"
+  }
+]

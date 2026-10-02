@@ -1,0 +1,61 @@
+{
+  "protocol_version": 2,
+  "git_commit": "1aea83a671bbb4f9419189924d24c2eb77f6588d",
+  "selection_metric": "val_f1_macro_mean",
+  "leaderboard": [
+    {
+      "model_type": "svdd",
+      "embedding": "e5",
+      "pca_dim": 25,
+      "val_f1_macro_mean": 0.1569,
+      "val_f1_macro_std": 0.130966357,
+      "val_pr_auc_mean": 0.0502666667,
+      "val_recall_scam_mean": 0.5582333333
+    },
+    {
+      "model_type": "lunar",
+      "embedding": "openai",
+      "pca_dim": 150,
+      "val_f1_macro_mean": 0.1382666667,
+      "val_f1_macro_std": 0.095412834,
+      "val_pr_auc_mean": 0.0438333333,
+      "val_recall_scam_mean": 0.7148666667
+    },
+    {
+      "model_type": "lof",
+      "embedding": "e5",
+      "pca_dim": 500,
+      "val_f1_macro_mean": 0.0749,
+      "val_f1_macro_std": 0.0,
+      "val_pr_auc_mean": 0.0402,
+      "val_recall_scam_mean": 0.9759
+    },
+    {
+      "model_type": "ocsvm",
+      "embedding": "minilm",
+      "pca_dim": 25,
+      "val_f1_macro_mean": 0.0712,
+      "val_f1_macro_std": 0.0,
+      "val_pr_auc_mean": 0.1646,
+      "val_recall_scam_mean": 1.0
+    },
+    {
+      "model_type": "iforest",
+      "embedding": "voyage",
+      "pca_dim": 750,
+      "val_f1_macro_mean": 0.0712,
+      "val_f1_macro_std": 0.0,
+      "val_pr_auc_mean": 0.132,
+      "val_recall_scam_mean": 1.0
+    }
+  ],
+  "winner": {
+    "model_type": "svdd",
+    "embedding": "e5",
+    "pca_dim": 25,
+    "val_f1_macro_mean": 0.1569,
+    "val_f1_macro_std": 0.130966357,
+    "val_pr_auc_mean": 0.0502666667,
+    "val_recall_scam_mean": 0.5582333333
+  }
+}
