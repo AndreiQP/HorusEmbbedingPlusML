@@ -1,0 +1,5 @@
+{
+  "study_manifest_hash": "7538ce451c99d4f3611174c3b8c8adff1286f21495555ac37c21e5fb43077346",
+  "strategy": "min_fn",
+  "guarantee": "FN=0 only on internal_validation"
+}

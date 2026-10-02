@@ -1,0 +1,21 @@
+{
+  "plots": [
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/transformer/studies/dataset_size/plots/dataset_size_f1_macro.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/transformer/studies/dataset_size/plots/dataset_size_recall_scam.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/transformer/studies/dataset_size/plots/dataset_size_precision_scam.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/transformer/studies/dataset_size/plots/dataset_size_pr_auc.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/transformer/studies/dataset_size/plots/dataset_size_FP.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/transformer/studies/dataset_size/plots/dataset_size_FN.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/unsupervised/studies/dataset_size/plots/dataset_size_f1_macro.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/unsupervised/studies/dataset_size/plots/dataset_size_recall_scam.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/unsupervised/studies/dataset_size/plots/dataset_size_precision_scam.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/unsupervised/studies/dataset_size/plots/dataset_size_pr_auc.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/unsupervised/studies/dataset_size/plots/dataset_size_FP.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/unsupervised/studies/dataset_size/plots/dataset_size_FN.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/transformer/studies/plots/threshold_fp_fn.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/transformer/studies/plots/head_ablation_bge.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/transformer/studies/plots/head_ablation_openai.png",
+    "/home/andrei.pinto/HorusEmbbedingPlusML/backend/experiment_results/transformer/studies/plots/head_ablation_voyage.png"
+  ],
+  "cache_only": true
+}
