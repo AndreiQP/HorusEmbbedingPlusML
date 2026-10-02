@@ -15,6 +15,16 @@ from .explainability import (
     analyze_transformer_head_ablation,
     build_transformer_explainability_report,
 )
+from .hierarchical_perturbation import (
+    HierarchicalExplanation,
+    HierarchicalPerturbationExplainer,
+    ReproductionError,
+    explain_cached_dataset_sample,
+    explain_conversation,
+    resolve_bge_finalist_checkpoint,
+    run_cached_dataset_study,
+    save_hierarchical_explanations,
+)
 
 __all__ = [
     "StudyManifest", "load_study_manifest", "select_study_finalists",
@@ -22,4 +32,9 @@ __all__ = [
     "aggregate_dataset_size_results", "analyze_transformer_complementarity",
     "run_transformer_threshold_study", "extract_transformer_head_attention",
     "analyze_transformer_head_ablation", "build_transformer_explainability_report",
+    "HierarchicalExplanation", "HierarchicalPerturbationExplainer", "ReproductionError",
+    "explain_conversation", "explain_cached_dataset_sample",
+    "resolve_bge_finalist_checkpoint",
+    "run_cached_dataset_study",
+    "save_hierarchical_explanations",
 ]

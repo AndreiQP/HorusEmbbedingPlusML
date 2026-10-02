@@ -16,6 +16,11 @@ from .studies import (
     analyze_transformer_complementarity, run_transformer_threshold_study,
     extract_transformer_head_attention, analyze_transformer_head_ablation,
     build_transformer_explainability_report,
+    HierarchicalExplanation, HierarchicalPerturbationExplainer, ReproductionError,
+    explain_conversation, explain_cached_dataset_sample,
+    resolve_bge_finalist_checkpoint,
+    run_cached_dataset_study,
+    save_hierarchical_explanations,
 )
 from .data import (
     load_single_embedding,
@@ -106,6 +111,11 @@ __all__ = [
     "run_unsupervised_dataset_size_study", "analyze_transformer_complementarity",
     "run_transformer_threshold_study", "extract_transformer_head_attention",
     "analyze_transformer_head_ablation", "build_transformer_explainability_report",
+    "HierarchicalExplanation", "HierarchicalPerturbationExplainer", "ReproductionError",
+    "explain_conversation", "explain_cached_dataset_sample",
+    "resolve_bge_finalist_checkpoint",
+    "run_cached_dataset_study",
+    "save_hierarchical_explanations",
     "finalize_unsupervised_pipeline",
     "train_cvdd", "train_date",
 ]
