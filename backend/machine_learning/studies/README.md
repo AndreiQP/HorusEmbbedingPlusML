@@ -77,8 +77,9 @@ perturbados são reutilizados nas três seeds.
 O estudo cacheado exclui conversas com seis ou menos mensagens: o default
 `--min-messages 7` exige pelo menos sete turnos após o corte dos últimos 100.
 Assim, cada explicação selecionada tem ao menos seis mensagens reais para a
-etapa macro. Se uma categoria não tiver os cinco casos elegíveis solicitados, o
-job falha antes de executar perturbações e informa a contagem disponível.
+etapa macro. Cada categoria usa os cinco casos elegíveis solicitados ou, quando
+isso não for possível, todos os casos disponíveis; o job registra a redução no
+log e no manifesto, sem descartar as demais categorias.
 
 Para uma conversa nova:
 

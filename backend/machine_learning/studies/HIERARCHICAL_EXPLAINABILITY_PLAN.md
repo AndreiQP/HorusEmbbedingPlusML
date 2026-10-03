@@ -105,6 +105,7 @@ separada das duas distribuições.
 - Alterar somente o vetor alvo na etapa micro.
 - Retornar índices, textos, offsets e direção dos efeitos.
 - Produzir rankings determinísticos e resultados separados por seed.
-- Produzir 20 explicações principais e oito casos de estabilidade com os defaults,
-  desde que existam cinco exemplos elegíveis por categoria.
+- Produzir até 20 explicações principais e até oito casos de estabilidade com os
+  defaults: cada categoria usa cinco exemplos elegíveis quando disponíveis ou
+  todos os disponíveis quando houver menos.
 - Entregar os trechos mais fortes pró-Scam e pró-Ham quando existirem.

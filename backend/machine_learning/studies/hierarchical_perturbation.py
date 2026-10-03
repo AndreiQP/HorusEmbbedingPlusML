@@ -1346,11 +1346,16 @@ def run_cached_dataset_study(
             category: int(np.sum(mask & eligible_mask))
             for category, mask in category_masks.items()
         }
-        if any(count < samples_per_category for count in available.values()):
-            raise ValueError(
-                "Não há conversas elegíveis suficientes após aplicar "
-                f"min_messages={min_messages}: disponíveis por categoria={available}; "
-                f"solicitadas={samples_per_category}"
+        reduced_categories = {
+            category: count
+            for category, count in available.items()
+            if count < samples_per_category
+        }
+        if reduced_categories:
+            print(
+                "Amostragem reduzida por disponibilidade após aplicar "
+                f"min_messages={min_messages}: solicitadas={samples_per_category}; "
+                f"usando todas as elegíveis em {reduced_categories}"
             )
     else:
         selected_ids = [str(value) for value in sample_ids]
