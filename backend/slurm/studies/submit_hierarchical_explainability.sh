@@ -15,6 +15,7 @@ STABILITY_SEEDS_EXPLICIT=0
 TOP_MESSAGES=6
 MAX_NGRAM=5
 TOP_SPANS=20
+EXCLUDE_NODE=""
 DRY_RUN=0
 
 while [[ $# -gt 0 ]]; do
@@ -38,6 +39,7 @@ while [[ $# -gt 0 ]]; do
         --top-messages) shift; TOP_MESSAGES="${1:?valor ausente}" ;;
         --max-ngram) shift; MAX_NGRAM="${1:?valor ausente}" ;;
         --top-spans-per-message) shift; TOP_SPANS="${1:?valor ausente}" ;;
+        --exclude-node) shift; EXCLUDE_NODE="${1:?--exclude-node exige um nó}" ;;
         --dry-run) DRY_RUN=1 ;;
         *) echo "Opção inválida: $1" >&2; exit 2 ;;
     esac
@@ -78,6 +80,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
     echo "[dry-run] split=$SPLIT seed_principal=$PRIMARY_SEED casos_por_categoria=$SAMPLES_PER_CATEGORY min_messages=$MIN_MESSAGES"
     echo "[dry-run] estabilidade=$STABILITY_SAMPLES_PER_CATEGORY por categoria seeds=$STABILITY_SEEDS_SERIALIZED"
     echo "[dry-run] top_messages=$TOP_MESSAGES max_ngram=$MAX_NGRAM top_spans=$TOP_SPANS"
+    [[ -n "$EXCLUDE_NODE" ]] && echo "[dry-run] exclude_node=$EXCLUDE_NODE"
     echo "[dry-run] sbatch backend/slurm/studies/run_hierarchical_explainability.sbatch"
     exit 0
 fi
@@ -103,7 +106,9 @@ for seed in dict.fromkeys(seeds):
     print(f"[preflight] seed={seed}: {resolve_bge_finalist_checkpoint(seed, root)}")
 PY
 
-job_id=$(sbatch --parsable \
+sbatch_args=()
+[[ -n "$EXCLUDE_NODE" ]] && sbatch_args+=(--exclude="$EXCLUDE_NODE")
+job_id=$(sbatch --parsable "${sbatch_args[@]}" \
     --export="$EXPORTS" \
     --job-name="bge_hier_exp" \
     "$SCRIPT_DIR/run_hierarchical_explainability.sbatch")

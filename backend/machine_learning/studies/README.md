@@ -153,6 +153,17 @@ bash backend/slurm/studies/submit_hierarchical_explainability.sh \
   --split test_internal --skip-stability
 ```
 
+Se um job falhar com `uncorrectable ECC error`, identifique o nó pelo `sacct` e
+reenvie excluindo-o; por exemplo, para o nó `dl-01`:
+
+```bash
+bash backend/slurm/studies/submit_hierarchical_explainability.sh \
+  --split test_internal --exclude-node dl-01
+```
+
+O job usa o cache local do BGE-M3 em modo offline, pois os nós de compute não
+precisam — e normalmente não conseguem — acessar o Hugging Face Hub.
+
 O job verifica antes da análise o checkpoint da seed 42 e, quando a estabilidade
 está habilitada, também os checkpoints 52 e 62. Ele solicita uma GPU L40S e grava os resultados em
 `backend/experiment_results/transformer/studies/hierarchical_explainability/<split>`.

@@ -30,8 +30,19 @@ cd "$PROJECT_ROOT"
 source /home/andrei.pinto/miniconda3/etc/profile.d/conda.sh
 conda activate env_gpu_final
 export PYTHONPATH="$PROJECT_ROOT/backend${PYTHONPATH:+:$PYTHONPATH}"
+# O BGE-M3 já foi baixado no cache compartilhado do cluster. Os nós de compute
+# não têm DNS para o Hugging Face, portanto não tente resolver o Hub durante o job.
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
 
-python -c 'import torch; assert torch.cuda.is_available(), "CUDA indisponível"'
+python - <<'PY'
+import torch
+
+assert torch.cuda.is_available(), "CUDA indisponível"
+probe = torch.zeros(1, device="cuda")
+torch.cuda.synchronize()
+print(f"[gpu-preflight] device={torch.cuda.get_device_name()} probe={probe.item()}")
+PY
 python - <<'PY'
 import os
 from machine_learning.studies import resolve_bge_finalist_checkpoint
