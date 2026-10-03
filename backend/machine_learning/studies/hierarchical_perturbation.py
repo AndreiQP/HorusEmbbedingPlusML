@@ -28,6 +28,7 @@ BGE_MODEL_NAME = "BAAI/bge-m3"
 DEFAULT_EFFECT_EPSILON = 1e-4
 DEFAULT_REPRODUCTION_ATOL = 1e-5
 DEFAULT_REPRODUCTION_RTOL = 1e-4
+DEFAULT_MIN_MESSAGES = 7
 TURN_MARKER_RE = re.compile(r"(?<!\S)(?P<speaker>Innocent|Suspect):")
 WORD_RE = re.compile(r"\S+")
 
@@ -1263,6 +1264,7 @@ def run_cached_dataset_study(
     stability_seeds: Sequence[int] = (42, 52, 62),
     samples_per_category: int = 5,
     stability_samples_per_category: int = 2,
+    min_messages: int = DEFAULT_MIN_MESSAGES,
     sample_ids: Sequence[str] | None = None,
     top_messages: int = 6,
     max_ngram: int = 5,
@@ -1271,7 +1273,12 @@ def run_cached_dataset_study(
     output_dir: str | Path | None = None,
     checkpoint_root: str | Path | None = None,
 ) -> list[HierarchicalExplanation]:
-    """Executa seed canônica completa e estabilidade reduzida sem repetir BGE."""
+    """Executa seed canônica completa e estabilidade reduzida sem repetir BGE.
+
+    Apenas conversas com pelo menos ``min_messages`` turnos após o corte dos
+    últimos 100 são elegíveis. O default 7 implementa o critério de "mais de
+    seis mensagens", garantindo que a etapa macro possa exibir seis turnos.
+    """
     from .explainability import _dataset
 
     if split not in {"test_internal", "validation"}:
@@ -1284,6 +1291,8 @@ def run_cached_dataset_study(
         raise ValueError(
             "stability_samples_per_category não pode exceder samples_per_category"
         )
+    if min_messages < 1:
+        raise ValueError("min_messages deve ser >= 1")
     sequences, labels, ids, text_by_id = _dataset("bge", split)
     ids = np.asarray(ids).astype(str)
     labels = np.asarray(labels).astype(int)
@@ -1313,20 +1322,50 @@ def run_cached_dataset_study(
         models[seed] = (model, metadata)
         bundles[seed] = bundle
 
+    message_counts = np.asarray([
+        len(parse_conversation(text_by_id[sample_id]))
+        for sample_id in ids
+    ])
+    eligible_mask = message_counts >= min_messages
+    predictions = np.asarray(bundles[primary_seed]["y_pred"]).astype(int)
+
     if sample_ids is None:
         selected_by_category = _select_samples_by_prediction_category(
-            ids,
-            labels,
-            bundles[primary_seed]["y_pred"],
+            ids[eligible_mask],
+            labels[eligible_mask],
+            predictions[eligible_mask],
             samples_per_category,
         )
+        category_masks = {
+            "TP": (labels == 1) & (predictions == 1),
+            "TN": (labels == 0) & (predictions == 0),
+            "FP": (labels == 0) & (predictions == 1),
+            "FN": (labels == 1) & (predictions == 0),
+        }
+        available = {
+            category: int(np.sum(mask & eligible_mask))
+            for category, mask in category_masks.items()
+        }
+        if any(count < samples_per_category for count in available.values()):
+            raise ValueError(
+                "Não há conversas elegíveis suficientes após aplicar "
+                f"min_messages={min_messages}: disponíveis por categoria={available}; "
+                f"solicitadas={samples_per_category}"
+            )
     else:
         selected_ids = [str(value) for value in sample_ids]
         missing = sorted(set(selected_ids) - set(ids.tolist()))
         if missing:
             raise ValueError(f"sample_ids ausentes no split {split}: {missing[:10]}")
         index_by_id = {sample_id: index for index, sample_id in enumerate(ids.tolist())}
-        predictions = np.asarray(bundles[primary_seed]["y_pred"]).astype(int)
+        too_short = [
+            sample_id for sample_id in selected_ids
+            if message_counts[index_by_id[sample_id]] < min_messages
+        ]
+        if too_short:
+            raise ValueError(
+                f"sample_ids com menos de {min_messages} mensagens: {too_short[:10]}"
+            )
         selected_by_category = {category: [] for category in ("TP", "TN", "FP", "FN")}
         for sample_id in selected_ids:
             index = index_by_id[sample_id]
@@ -1432,6 +1471,17 @@ def run_cached_dataset_study(
             ),
             "samples_per_category": samples_per_category,
             "stability_samples_per_category": stability_samples_per_category,
+            "min_messages": min_messages,
+            "eligible_samples": int(eligible_mask.sum()),
+            "eligible_category_counts": {
+                category: int(np.sum(mask & eligible_mask))
+                for category, mask in {
+                    "TP": (labels == 1) & (predictions == 1),
+                    "TN": (labels == 0) & (predictions == 0),
+                    "FP": (labels == 0) & (predictions == 1),
+                    "FN": (labels == 1) & (predictions == 0),
+                }.items()
+            },
             "primary_category_counts": {
                 category: len(selected_by_category[category])
                 for category in ("TP", "TN", "FP", "FN")
@@ -1701,6 +1751,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--top-spans-per-message", type=int, default=20)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--samples-per-category", type=int, default=5)
+    parser.add_argument("--min-messages", type=int, default=DEFAULT_MIN_MESSAGES)
     parser.add_argument("--primary-seed", type=int, default=42)
     parser.add_argument("--stability-seed", type=int, action="append")
     parser.add_argument("--stability-samples-per-category", type=int, default=2)
@@ -1724,6 +1775,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             primary_seed=args.primary_seed,
             stability_seeds=tuple(args.stability_seed or (42, 52, 62)),
             samples_per_category=args.samples_per_category,
+            min_messages=args.min_messages,
             stability_samples_per_category=(
                 0 if args.skip_stability else args.stability_samples_per_category
             ),

@@ -62,6 +62,7 @@ def parser() -> argparse.ArgumentParser:
     hierarchical.add_argument("--max-ngram", type=int, default=5)
     hierarchical.add_argument("--top-spans-per-message", type=int, default=20)
     hierarchical.add_argument("--samples-per-category", type=int, default=5)
+    hierarchical.add_argument("--min-messages", type=int, default=7)
     hierarchical.add_argument("--primary-seed", type=int, default=42)
     hierarchical.add_argument("--stability-seed", type=int, action="append")
     hierarchical.add_argument("--stability-samples-per-category", type=int, default=2)
@@ -134,6 +135,7 @@ def main(argv=None) -> int:
                 primary_seed=args.primary_seed,
                 stability_seeds=tuple(args.stability_seed or (42, 52, 62)),
                 samples_per_category=args.samples_per_category,
+                min_messages=args.min_messages,
                 stability_samples_per_category=stability_count,
                 output_dir=output_dir,
                 **common,

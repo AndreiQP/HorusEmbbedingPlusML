@@ -23,6 +23,9 @@ afirmação de veracidade factual.
 - Auditar a reprodução BGE uma única vez por job em uma conversa determinística,
   com `atol=1e-5` e `rtol=1e-4`; interromper o estudo em caso de divergência.
 - Manter somente os últimos 100 turnos e preservar os índices originais.
+- Selecionar para o estudo somente conversas com mais de seis mensagens, isto é,
+  pelo menos sete turnos após esse corte. Isso garante seis mensagens reais na
+  visualização macro; conversas curtas não entram na amostra TP/TN/FP/FN.
 - Na etapa macro, codificar uma vez os baselines `Innocent:` e `Suspect:` e
   reutilizar esses vetores.
 - Definir `delta_logit = logit_original - logit_perturbado`.
@@ -69,6 +72,7 @@ run_cached_dataset_study(
     stability_seeds=(42, 52, 62),
     samples_per_category=5,
     stability_samples_per_category=2,
+    min_messages=7,
 )
 ```
 
@@ -101,5 +105,6 @@ separada das duas distribuições.
 - Alterar somente o vetor alvo na etapa micro.
 - Retornar índices, textos, offsets e direção dos efeitos.
 - Produzir rankings determinísticos e resultados separados por seed.
-- Produzir 20 explicações principais e oito casos de estabilidade com os defaults.
+- Produzir 20 explicações principais e oito casos de estabilidade com os defaults,
+  desde que existam cinco exemplos elegíveis por categoria.
 - Entregar os trechos mais fortes pró-Scam e pró-Ham quando existirem.

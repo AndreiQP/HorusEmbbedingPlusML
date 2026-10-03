@@ -74,6 +74,12 @@ faz uma auditoria numérica em uma conversa por job e depois codifica somente os
 dois baselines, as perturbações e os textos de sufficiency. Os mesmos embeddings
 perturbados são reutilizados nas três seeds.
 
+O estudo cacheado exclui conversas com seis ou menos mensagens: o default
+`--min-messages 7` exige pelo menos sete turnos após o corte dos últimos 100.
+Assim, cada explicação selecionada tem ao menos seis mensagens reais para a
+etapa macro. Se uma categoria não tiver os cinco casos elegíveis solicitados, o
+job falha antes de executar perturbações e informa a contagem disponível.
+
 Para uma conversa nova:
 
 ```bash
@@ -104,7 +110,7 @@ categoria para estabilidade nas seeds 42/52/62:
 python -m machine_learning.studies hierarchical-explain \
   --study --split test_internal --primary-seed 42 \
   --stability-seed 42 --stability-seed 52 --stability-seed 62 \
-  --samples-per-category 5 --stability-samples-per-category 2
+  --samples-per-category 5 --stability-samples-per-category 2 --min-messages 7
 ```
 
 Sem `--output-dir`, o split é acrescentado automaticamente ao destino. Assim,

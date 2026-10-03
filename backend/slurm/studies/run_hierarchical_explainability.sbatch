@@ -17,6 +17,7 @@ PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd -P)"
 CHECKPOINT_ROOT="${HORUS_CHECKPOINT_ROOT:-$PROJECT_ROOT/backend/experiment_results/transformer}"
 SPLIT="${HIER_SPLIT:-test_internal}"
 SAMPLES_PER_CATEGORY="${HIER_SAMPLES_PER_CATEGORY:-5}"
+MIN_MESSAGES="${HIER_MIN_MESSAGES:-7}"
 STABILITY_SAMPLES_PER_CATEGORY="${HIER_STABILITY_SAMPLES_PER_CATEGORY:-2}"
 PRIMARY_SEED="${HIER_PRIMARY_SEED:-42}"
 STABILITY_SEEDS="${HIER_STABILITY_SEEDS:-42:52:62}"
@@ -56,6 +57,7 @@ python -m machine_learning.studies hierarchical-explain \
     --primary-seed "$PRIMARY_SEED" \
     "${stability_args[@]}" \
     --samples-per-category "$SAMPLES_PER_CATEGORY" \
+    --min-messages "$MIN_MESSAGES" \
     --stability-samples-per-category "$STABILITY_SAMPLES_PER_CATEGORY" \
     --top-messages "$TOP_MESSAGES" \
     --max-ngram "$MAX_NGRAM" \

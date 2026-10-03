@@ -7,6 +7,7 @@ CHECKPOINT_ROOT="${HORUS_CHECKPOINT_ROOT:-$PROJECT_ROOT/backend/experiment_resul
 OUTPUT_DIR=""
 SPLIT="test_internal"
 SAMPLES_PER_CATEGORY=5
+MIN_MESSAGES=7
 STABILITY_SAMPLES_PER_CATEGORY=2
 PRIMARY_SEED=42
 STABILITY_SEEDS=(42 52 62)
@@ -22,6 +23,7 @@ while [[ $# -gt 0 ]]; do
         --output-dir) shift; OUTPUT_DIR="${1:?--output-dir exige um caminho}" ;;
         --split) shift; SPLIT="${1:?--split exige test_internal ou validation}" ;;
         --samples-per-category) shift; SAMPLES_PER_CATEGORY="${1:?valor ausente}" ;;
+        --min-messages) shift; MIN_MESSAGES="${1:?valor ausente}" ;;
         --stability-samples-per-category) shift; STABILITY_SAMPLES_PER_CATEGORY="${1:?valor ausente}" ;;
         --primary-seed) shift; PRIMARY_SEED="${1:?valor ausente}" ;;
         --stability-seed)
@@ -50,7 +52,7 @@ fi
     echo "--split deve ser test_internal ou validation" >&2
     exit 2
 }
-for value in "$SAMPLES_PER_CATEGORY" "$TOP_MESSAGES" "$MAX_NGRAM" "$TOP_SPANS"; do
+for value in "$SAMPLES_PER_CATEGORY" "$MIN_MESSAGES" "$TOP_MESSAGES" "$MAX_NGRAM" "$TOP_SPANS"; do
     [[ "$value" =~ ^[1-9][0-9]*$ ]] || {
         echo "Parâmetros de contagem devem ser inteiros positivos" >&2
         exit 2
@@ -68,12 +70,12 @@ fi
 STABILITY_SEEDS_SERIALIZED=$(IFS=:; echo "${STABILITY_SEEDS[*]}")
 
 mkdir -p "$PROJECT_ROOT/slurm_logs/model_studies" "$OUTPUT_DIR"
-EXPORTS="ALL,HORUS_PROJECT_ROOT=$PROJECT_ROOT,HORUS_CHECKPOINT_ROOT=$CHECKPOINT_ROOT,HIER_SPLIT=$SPLIT,HIER_SAMPLES_PER_CATEGORY=$SAMPLES_PER_CATEGORY,HIER_STABILITY_SAMPLES_PER_CATEGORY=$STABILITY_SAMPLES_PER_CATEGORY,HIER_PRIMARY_SEED=$PRIMARY_SEED,HIER_STABILITY_SEEDS=$STABILITY_SEEDS_SERIALIZED,HIER_TOP_MESSAGES=$TOP_MESSAGES,HIER_MAX_NGRAM=$MAX_NGRAM,HIER_TOP_SPANS_PER_MESSAGE=$TOP_SPANS,HIER_OUTPUT_DIR=$OUTPUT_DIR"
+EXPORTS="ALL,HORUS_PROJECT_ROOT=$PROJECT_ROOT,HORUS_CHECKPOINT_ROOT=$CHECKPOINT_ROOT,HIER_SPLIT=$SPLIT,HIER_SAMPLES_PER_CATEGORY=$SAMPLES_PER_CATEGORY,HIER_MIN_MESSAGES=$MIN_MESSAGES,HIER_STABILITY_SAMPLES_PER_CATEGORY=$STABILITY_SAMPLES_PER_CATEGORY,HIER_PRIMARY_SEED=$PRIMARY_SEED,HIER_STABILITY_SEEDS=$STABILITY_SEEDS_SERIALIZED,HIER_TOP_MESSAGES=$TOP_MESSAGES,HIER_MAX_NGRAM=$MAX_NGRAM,HIER_TOP_SPANS_PER_MESSAGE=$TOP_SPANS,HIER_OUTPUT_DIR=$OUTPUT_DIR"
 
 if [[ "$DRY_RUN" == "1" ]]; then
     echo "[dry-run] checkpoints=$CHECKPOINT_ROOT"
     echo "[dry-run] output=$OUTPUT_DIR"
-    echo "[dry-run] split=$SPLIT seed_principal=$PRIMARY_SEED casos_por_categoria=$SAMPLES_PER_CATEGORY"
+    echo "[dry-run] split=$SPLIT seed_principal=$PRIMARY_SEED casos_por_categoria=$SAMPLES_PER_CATEGORY min_messages=$MIN_MESSAGES"
     echo "[dry-run] estabilidade=$STABILITY_SAMPLES_PER_CATEGORY por categoria seeds=$STABILITY_SEEDS_SERIALIZED"
     echo "[dry-run] top_messages=$TOP_MESSAGES max_ngram=$MAX_NGRAM top_spans=$TOP_SPANS"
     echo "[dry-run] sbatch backend/slurm/studies/run_hierarchical_explainability.sbatch"
@@ -85,6 +87,7 @@ conda activate env_py_3_12
 export PYTHONPATH="$PROJECT_ROOT/backend${PYTHONPATH:+:$PYTHONPATH}"
 export HORUS_CHECKPOINT_ROOT="$CHECKPOINT_ROOT"
 export HIER_PRIMARY_SEED="$PRIMARY_SEED"
+export HIER_MIN_MESSAGES="$MIN_MESSAGES"
 export HIER_STABILITY_SEEDS="$STABILITY_SEEDS_SERIALIZED"
 export HIER_STABILITY_SAMPLES_PER_CATEGORY="$STABILITY_SAMPLES_PER_CATEGORY"
 python - <<'PY'

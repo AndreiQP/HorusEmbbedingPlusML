@@ -319,14 +319,26 @@ def test_category_selection_covers_tp_tn_fp_fn_deterministically():
 def test_study_runs_primary_on_twenty_and_stability_on_eight(monkeypatch, tmp_path):
     from machine_learning.studies import explainability as explainability_module
 
-    categories = ["TP"] * 5 + ["TN"] * 5 + ["FP"] * 5 + ["FN"] * 5
-    ids = np.asarray([f"sample-{index:02d}" for index in range(20)])
+    categories = ["TP"] * 6 + ["TN"] * 6 + ["FP"] * 6 + ["FN"] * 6
+    ids = np.asarray([f"sample-{index:02d}" for index in range(24)])
     labels = np.asarray([1 if category in {"TP", "FN"} else 0 for category in categories])
     predictions = np.asarray([1 if category in {"TP", "FP"} else 0 for category in categories])
     texts = {
         sample_id: (
-            "Innocent: mensagem comum Suspect: fraude"
-            if prediction == 1 else "Innocent: verdadeiro Suspect: mensagem comum"
+            "Suspect: curto"
+            if int(sample_id[-2:]) % 6 == 0 else " ".join([
+                "Innocent: mensagem comum", "Suspect: fraude",
+                "Innocent: contexto", "Suspect: pedido",
+                "Innocent: resposta", "Suspect: urgência", "Innocent: final",
+            ])
+            if prediction == 1 else (
+                "Innocent: curto"
+                if int(sample_id[-2:]) % 6 == 0 else " ".join([
+                "Innocent: verdadeiro", "Suspect: mensagem comum",
+                "Innocent: contexto", "Suspect: resposta",
+                "Innocent: confirmação", "Suspect: final", "Innocent: encerramento",
+                ])
+            )
         )
         for sample_id, prediction in zip(ids, predictions)
     }
@@ -388,6 +400,11 @@ def test_study_runs_primary_on_twenty_and_stability_on_eight(monkeypatch, tmp_pa
     assert loaded_seeds == [42, 52, 62]
     assert len(captured["manifest"]["primary_sample_ids"]) == 20
     assert len(captured["manifest"]["stability_sample_ids"]) == 8
+    assert captured["manifest"]["min_messages"] == 7
+    assert all(
+        len(parse_conversation(texts[sample_id])) >= 7
+        for sample_id in captured["manifest"]["primary_sample_ids"]
+    )
     assert {item.metadata["candidate_source_seed"] for item in explanations} == {42}
 
 
@@ -441,6 +458,7 @@ def test_study_without_stability_loads_only_primary_checkpoint(monkeypatch, tmp_
         split="validation",
         samples_per_category=1,
         stability_samples_per_category=0,
+        min_messages=1,
         top_messages=1,
         max_ngram=1,
         top_spans_per_message=1,
