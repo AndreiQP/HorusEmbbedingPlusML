@@ -1,0 +1,111 @@
+{
+  "analysis": "hierarchical_perturbation_v2",
+  "analysis_hash": "59357492710f803ab8ac1d169196b1138dab9b4e0436c710e54f51cf18c83fc0",
+  "seeds": [
+    42,
+    52,
+    62
+  ],
+  "sample_ids": [
+    "03f21a378d45f3eaf304bd8fa16a56eca5c31f59db21c7405d9509a5aae04172:0",
+    "0ff64c5e40e637794733ff787fcbacf338f9dfd53deb58580549f79b140aa621:0",
+    "16958c957b218863dada5c78afa48ab44492658f03f9ad919f85eca965f053d6:0",
+    "19d637e62d943dc619745c71165e22255fc13bf961a44206abaf65baf6d13574:0",
+    "25ced22195a4ac4ebb880d8e946fb5fd8771f0a2a4d5a19e4c56c992abdd6fec:0",
+    "36b7d48317006ed4329d19cbe97a909f780985a536d29f07a7e03b9b0534ebba:0",
+    "3f40da44aacf42ab12ba77c2eeef4cd69cf0c9ddca28c790e1da0432255f9594:1",
+    "402fb70fafc8ee694377af4c833d1b1c4c7d902e740adfb559c408f8a8133efe:0",
+    "489892e1129e87ed8afa40371fba8e796b81d72b478fd91fe881ce7a1a2a5e6c:0",
+    "59fb0b1e5c4c4996df83100272a129c13acc808bb3ee70b177a732991a5dd83a:0",
+    "5b0e2442a3a014b15d5bd6427a6b305719ade46dac2dbc428323bb45876c59a3:0",
+    "6a276fa1c70af3c9c70c33a8813d86410d38582b1c42e83ff1b0bb9333d82909:0",
+    "a3f028b1639d90736672d1ae065b9d27aa0861905c489a2cf1f41607680190c2:0",
+    "a59aa22b247006c5301bf11bffbdf4e43c882e31b79abbf0e131da24258e99b3:0",
+    "aa55b87f25b0b2357896fef3d90087ef56191e5d2efaeee147cba6bfa0e845cf:0",
+    "bbf941c4cd491328ec68630b1f9ba712962a1442c7b21899310e965cad466809:0",
+    "c7f212f0bc658f940ce18ed819e3333460f197fb67d66e0bf327a089651fb6dd:0",
+    "ca5d1c9970de3325caa49f0f3b1511ed07e819264df426a969264fc4ca8177b4:0",
+    "ebbfe59f22d8e0f96ee7e8bc876d114cb788cfa37b19a557d2cdac058edde388:1",
+    "ffe65a6c023c42484ce11ec19b4de85b537c67b3d711d712fc5e35a77b18825e:0"
+  ],
+  "n_explanations": 36,
+  "external_validation_used_for_selection": false,
+  "effect_definition": "original_logit - perturbed_logit",
+  "effect_epsilon": 0.0001,
+  "primary_seed": 42,
+  "stability_seeds": [
+    42,
+    52,
+    62
+  ],
+  "primary_sample_ids": [
+    "19d637e62d943dc619745c71165e22255fc13bf961a44206abaf65baf6d13574:0",
+    "a59aa22b247006c5301bf11bffbdf4e43c882e31b79abbf0e131da24258e99b3:0",
+    "aa55b87f25b0b2357896fef3d90087ef56191e5d2efaeee147cba6bfa0e845cf:0",
+    "16958c957b218863dada5c78afa48ab44492658f03f9ad919f85eca965f053d6:0",
+    "3f40da44aacf42ab12ba77c2eeef4cd69cf0c9ddca28c790e1da0432255f9594:1",
+    "5b0e2442a3a014b15d5bd6427a6b305719ade46dac2dbc428323bb45876c59a3:0",
+    "0ff64c5e40e637794733ff787fcbacf338f9dfd53deb58580549f79b140aa621:0",
+    "ca5d1c9970de3325caa49f0f3b1511ed07e819264df426a969264fc4ca8177b4:0",
+    "ebbfe59f22d8e0f96ee7e8bc876d114cb788cfa37b19a557d2cdac058edde388:1",
+    "bbf941c4cd491328ec68630b1f9ba712962a1442c7b21899310e965cad466809:0",
+    "489892e1129e87ed8afa40371fba8e796b81d72b478fd91fe881ce7a1a2a5e6c:0",
+    "ffe65a6c023c42484ce11ec19b4de85b537c67b3d711d712fc5e35a77b18825e:0",
+    "c7f212f0bc658f940ce18ed819e3333460f197fb67d66e0bf327a089651fb6dd:0",
+    "6a276fa1c70af3c9c70c33a8813d86410d38582b1c42e83ff1b0bb9333d82909:0",
+    "a3f028b1639d90736672d1ae065b9d27aa0861905c489a2cf1f41607680190c2:0",
+    "25ced22195a4ac4ebb880d8e946fb5fd8771f0a2a4d5a19e4c56c992abdd6fec:0",
+    "03f21a378d45f3eaf304bd8fa16a56eca5c31f59db21c7405d9509a5aae04172:0",
+    "402fb70fafc8ee694377af4c833d1b1c4c7d902e740adfb559c408f8a8133efe:0",
+    "59fb0b1e5c4c4996df83100272a129c13acc808bb3ee70b177a732991a5dd83a:0",
+    "36b7d48317006ed4329d19cbe97a909f780985a536d29f07a7e03b9b0534ebba:0"
+  ],
+  "stability_sample_ids": [
+    "03f21a378d45f3eaf304bd8fa16a56eca5c31f59db21c7405d9509a5aae04172:0",
+    "0ff64c5e40e637794733ff787fcbacf338f9dfd53deb58580549f79b140aa621:0",
+    "19d637e62d943dc619745c71165e22255fc13bf961a44206abaf65baf6d13574:0",
+    "25ced22195a4ac4ebb880d8e946fb5fd8771f0a2a4d5a19e4c56c992abdd6fec:0",
+    "489892e1129e87ed8afa40371fba8e796b81d72b478fd91fe881ce7a1a2a5e6c:0",
+    "5b0e2442a3a014b15d5bd6427a6b305719ade46dac2dbc428323bb45876c59a3:0",
+    "a59aa22b247006c5301bf11bffbdf4e43c882e31b79abbf0e131da24258e99b3:0",
+    "ffe65a6c023c42484ce11ec19b4de85b537c67b3d711d712fc5e35a77b18825e:0"
+  ],
+  "encoder": {
+    "model_name": "BAAI/bge-m3",
+    "revision": null,
+    "pooling": {
+      "pooling_mode": "cls",
+      "embedding_dimension": 1024,
+      "include_prompt": true
+    },
+    "normalize_module": true,
+    "sentence_transformers_version": "5.4.1",
+    "transformers_version": "5.18.0",
+    "torch_version": "2.7.1+cu118"
+  },
+  "samples_per_category": 5,
+  "stability_samples_per_category": 2,
+  "primary_category_counts": {
+    "TP": 5,
+    "TN": 5,
+    "FP": 5,
+    "FN": 5
+  },
+  "stability_category_counts": {
+    "TP": 2,
+    "TN": 2,
+    "FP": 2,
+    "FN": 2
+  },
+  "bge_audit": {
+    "status": "passed",
+    "atol": 1e-05,
+    "rtol": 0.0001,
+    "embedding_max_abs_error": 4.5821070671081543e-07,
+    "embedding_mean_abs_error": 4.380698470640709e-08,
+    "embedding_min_cosine": 0.9999999403953552,
+    "audited_turns": 11,
+    "policy": "once_per_study_job",
+    "sample_id": "19d637e62d943dc619745c71165e22255fc13bf961a44206abaf65baf6d13574:0"
+  }
+}
