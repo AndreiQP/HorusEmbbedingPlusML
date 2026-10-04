@@ -1,0 +1,113 @@
+{
+  "analysis": "hierarchical_perturbation_v2",
+  "analysis_hash": "577caf1dec161b8673cc7652c287ef01cf64491e587d571e9ff662af817234cd",
+  "seeds": [
+    42,
+    52,
+    62
+  ],
+  "sample_ids": [
+    "01915ab765c11799fc13fd4d0a9095129874696a0b2b854440b7d0f1e754072c:0",
+    "09d832b52822ccc22ab2bc0f6e61c289b197a36f39d0dba7d2b649b2cb18c7e3:0",
+    "133c6efbb341b48f1b6a145b874af6ab4822b2d07220cb7bf2a85ced35e77880:0",
+    "142c6533e8ecad44662528f07a32cd234d5209cfe9c460d00c98a04dd1c7cf60:0",
+    "14890fd9a96c227022d429bcdfb7e47872104b3e7325755f5b57e48a47a22c3f:0",
+    "4846614909ee0e0a3d4924b0939344d9355d6917dcbd671fe7bf59600921f70a:0",
+    "5a6a73657105ef9467bc2b721ae0c3a254d01632f291dbadafa61e1fe6eac4e9:0",
+    "5a6a73657105ef9467bc2b721ae0c3a254d01632f291dbadafa61e1fe6eac4e9:1",
+    "64149c702ed8de35511e75a258cc7af29a08632391628bbe2d0b2683ef8c4f55:0",
+    "6a40c8e04954719bed8da2b9cb74e3ebf23c2567c22afab212bef2452cbae32c:0",
+    "72a69f3b848280b649da2b3989d79dc8e91a7416d0660180c401913306ccab6a:0",
+    "7d0143208754f4fdc375afeea1a00627c031209ca2420dd7a8b68322592134d3:0",
+    "853531990b72c6b79b0d2c26af88e0ba58e5e005b83c7f404260265f77ead80f:0",
+    "a820c1c062cc7d4d20394a120b944f112902c293ad97c58fe068c3794d502ba8:0",
+    "ab692c20ae9f9a2ea686fbf6c9e80356da5654125d35639447534799b4593eae:0",
+    "c4124c5e4879dc6dd125824593f4f1298f5e156ffa837743cfc4c65f42b9eb2c:0",
+    "fb8b4d713e8b38cd67a449982677ec342e9fe91c8fe75fbaf546a3876db61ad9:0"
+  ],
+  "n_explanations": 33,
+  "external_validation_used_for_selection": false,
+  "effect_definition": "original_logit - perturbed_logit",
+  "effect_epsilon": 0.0001,
+  "primary_seed": 42,
+  "stability_seeds": [
+    42,
+    52,
+    62
+  ],
+  "primary_sample_ids": [
+    "a820c1c062cc7d4d20394a120b944f112902c293ad97c58fe068c3794d502ba8:0",
+    "fb8b4d713e8b38cd67a449982677ec342e9fe91c8fe75fbaf546a3876db61ad9:0",
+    "64149c702ed8de35511e75a258cc7af29a08632391628bbe2d0b2683ef8c4f55:0",
+    "01915ab765c11799fc13fd4d0a9095129874696a0b2b854440b7d0f1e754072c:0",
+    "853531990b72c6b79b0d2c26af88e0ba58e5e005b83c7f404260265f77ead80f:0",
+    "ab692c20ae9f9a2ea686fbf6c9e80356da5654125d35639447534799b4593eae:0",
+    "4846614909ee0e0a3d4924b0939344d9355d6917dcbd671fe7bf59600921f70a:0",
+    "133c6efbb341b48f1b6a145b874af6ab4822b2d07220cb7bf2a85ced35e77880:0",
+    "6a40c8e04954719bed8da2b9cb74e3ebf23c2567c22afab212bef2452cbae32c:0",
+    "7d0143208754f4fdc375afeea1a00627c031209ca2420dd7a8b68322592134d3:0",
+    "c4124c5e4879dc6dd125824593f4f1298f5e156ffa837743cfc4c65f42b9eb2c:0",
+    "09d832b52822ccc22ab2bc0f6e61c289b197a36f39d0dba7d2b649b2cb18c7e3:0",
+    "14890fd9a96c227022d429bcdfb7e47872104b3e7325755f5b57e48a47a22c3f:0",
+    "72a69f3b848280b649da2b3989d79dc8e91a7416d0660180c401913306ccab6a:0",
+    "142c6533e8ecad44662528f07a32cd234d5209cfe9c460d00c98a04dd1c7cf60:0",
+    "5a6a73657105ef9467bc2b721ae0c3a254d01632f291dbadafa61e1fe6eac4e9:0",
+    "5a6a73657105ef9467bc2b721ae0c3a254d01632f291dbadafa61e1fe6eac4e9:1"
+  ],
+  "stability_sample_ids": [
+    "09d832b52822ccc22ab2bc0f6e61c289b197a36f39d0dba7d2b649b2cb18c7e3:0",
+    "4846614909ee0e0a3d4924b0939344d9355d6917dcbd671fe7bf59600921f70a:0",
+    "5a6a73657105ef9467bc2b721ae0c3a254d01632f291dbadafa61e1fe6eac4e9:0",
+    "5a6a73657105ef9467bc2b721ae0c3a254d01632f291dbadafa61e1fe6eac4e9:1",
+    "a820c1c062cc7d4d20394a120b944f112902c293ad97c58fe068c3794d502ba8:0",
+    "ab692c20ae9f9a2ea686fbf6c9e80356da5654125d35639447534799b4593eae:0",
+    "c4124c5e4879dc6dd125824593f4f1298f5e156ffa837743cfc4c65f42b9eb2c:0",
+    "fb8b4d713e8b38cd67a449982677ec342e9fe91c8fe75fbaf546a3876db61ad9:0"
+  ],
+  "encoder": {
+    "model_name": "BAAI/bge-m3",
+    "revision": null,
+    "pooling": {
+      "pooling_mode": "cls",
+      "embedding_dimension": 1024,
+      "include_prompt": true
+    },
+    "normalize_module": true,
+    "sentence_transformers_version": "5.4.1",
+    "transformers_version": "5.18.0",
+    "torch_version": "2.7.1+cu118"
+  },
+  "samples_per_category": 5,
+  "stability_samples_per_category": 2,
+  "min_messages": 7,
+  "eligible_samples": 1042,
+  "eligible_category_counts": {
+    "TP": 81,
+    "TN": 940,
+    "FP": 19,
+    "FN": 2
+  },
+  "primary_category_counts": {
+    "TP": 5,
+    "TN": 5,
+    "FP": 5,
+    "FN": 2
+  },
+  "stability_category_counts": {
+    "TP": 2,
+    "TN": 2,
+    "FP": 2,
+    "FN": 2
+  },
+  "bge_audit": {
+    "status": "passed",
+    "atol": 1e-05,
+    "rtol": 0.0001,
+    "embedding_max_abs_error": 4.302710294723511e-07,
+    "embedding_mean_abs_error": 4.004872522500591e-08,
+    "embedding_min_cosine": 0.9999998807907104,
+    "audited_turns": 100,
+    "policy": "once_per_study_job",
+    "sample_id": "a820c1c062cc7d4d20394a120b944f112902c293ad97c58fe068c3794d502ba8:0"
+  }
+}
