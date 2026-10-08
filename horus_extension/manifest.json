@@ -15,10 +15,15 @@
     "http://127.0.0.1:5000/*",
     "http://localhost:5000/*"
   ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "options_page": "options.html",
   "content_scripts": [
     {
       "matches": ["https://web.whatsapp.com/*"],
-      "js": ["content.js"],
+      "js": ["triggers.js", "content.js"],
       "run_at": "document_idle"
     }
   ],

@@ -1,38 +1,45 @@
-console.log("🛡️ IC Horus: Background Service Worker iniciado com sucesso!");
+const DEFAULT_API_BASE_URL = "http://localhost:5000";
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    
-    if (request.action === "chamarAPI") {
-        console.log(`[Background] 📡 Enviando para: http://localhost:5000${request.endpoint}`);
-        
-        fetch(`http://localhost:5000${request.endpoint}`, {
-            method: request.method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(request.dados)
-        })
-        .then(async (response) => {
-            // Verifica o tipo de arquivo que o Python enviou de volta
-            const contentType = response.headers.get("content-type");
-            
-            if (contentType && contentType.includes("application/json")) {
-                return response.json(); // Tudo certo, é JSON!
-            } else {
-                // Opa, não é JSON. Vamos ler como texto/HTML para ver o erro.
-                const textoErro = await response.text();
-                console.error(`[Background] 🚨 O Servidor devolveu HTML/Texto em vez de JSON! Status: ${response.status}`);
-                console.error(`[Background] 🚨 Conteúdo recebido (primeiros 200 caracteres):\n`, textoErro.substring(0, 200));
-                throw new Error(`Erro do Servidor (Status ${response.status}). Olhe o terminal do Python!`);
-            }
-        })
-        .then(data => {
-            console.log(`[Background] 🧠 Resposta da IA:`, data);
-            sendResponse({ sucesso: true, dados: data });
-        })
-        .catch(erro => {
-            console.error("[Background] ❌ Falha na requisição:", erro.message);
-            sendResponse({ sucesso: false, erro: erro.message });
-        });
+console.log("IC Horus: background service worker iniciado.");
 
-        return true; 
+async function apiBaseUrl() {
+    const stored = await chrome.storage.local.get({ horusApiBaseUrl: DEFAULT_API_BASE_URL });
+    return String(stored.horusApiBaseUrl || DEFAULT_API_BASE_URL).replace(/\/+$/, "");
+}
+
+async function callApi(request) {
+    const baseUrl = await apiBaseUrl();
+    const endpoint = String(request.endpoint || "");
+    const url = `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+    const method = String(request.method || "GET").toUpperCase();
+    const options = {
+        method,
+        headers: { "Content-Type": "application/json" }
+    };
+    if (method !== "GET" && method !== "HEAD" && request.dados !== undefined) {
+        options.body = JSON.stringify(request.dados);
     }
+
+    const response = await fetch(url, options);
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+        const body = await response.text();
+        throw new Error(`API retornou conteúdo não JSON (${response.status}): ${body.slice(0, 160)}`);
+    }
+    const data = await response.json();
+    if (!response.ok && response.status !== 202) {
+        throw new Error(data.message || data.error || `Erro HTTP ${response.status}`);
+    }
+    return { status: response.status, data };
+}
+
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+    if (request.action !== "chamarAPI") return false;
+    callApi(request)
+        .then(({ status, data }) => sendResponse({ sucesso: true, status, dados: data }))
+        .catch((error) => {
+            console.error("[IC Horus] Falha na API:", error);
+            sendResponse({ sucesso: false, erro: error.message });
+        });
+    return true;
 });

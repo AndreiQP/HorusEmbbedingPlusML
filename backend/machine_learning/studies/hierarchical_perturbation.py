@@ -485,9 +485,38 @@ class HierarchicalPerturbationExplainer:
         neutral_by_speaker: dict[str, np.ndarray] | None = None,
     ) -> PreparedPerturbations:
         """Codifica uma vez os candidatos definidos pelo Transformer canônico."""
+        turns = parse_conversation(conversation, max_turns=self.max_turns)
+        return self.prepare_turns(
+            turns,
+            conversation=conversation,
+            top_messages=top_messages,
+            max_ngram=max_ngram,
+            original_embeddings=original_embeddings,
+            neutral_by_speaker=neutral_by_speaker,
+        )
+
+    def prepare_turns(
+        self,
+        turns: Sequence[ConversationTurn],
+        *,
+        conversation: str,
+        top_messages: int = 6,
+        max_ngram: int = 5,
+        original_embeddings: np.ndarray | None = None,
+        neutral_by_speaker: dict[str, np.ndarray] | None = None,
+    ) -> PreparedPerturbations:
+        """Prepara perturbações para turnos já estruturados e alinhados.
+
+        Esta entrada evita redescobrir fronteiras por regex quando o chamador já
+        possui IDs e limites confiáveis, como na extensão do navegador.
+        """
         if top_messages < 1:
             raise ValueError("top_messages deve ser >= 1")
-        turns = parse_conversation(conversation, max_turns=self.max_turns)
+        turns = list(turns)[-self.max_turns:]
+        if not turns:
+            raise ValueError("A conversa deve conter ao menos um turno")
+        if [turn.model_index for turn in turns] != list(range(len(turns))):
+            raise ValueError("Turnos estruturados devem usar model_index contíguo a partir de zero")
         if original_embeddings is None:
             original = self._encode([turn.text for turn in turns])
             embedding_source = "bge_encoded_for_new_conversation"
@@ -564,6 +593,7 @@ class HierarchicalPerturbationExplainer:
         analysis_scope: str = "primary",
         expected_probability: float | None = None,
         defer_span_fidelity: bool = False,
+        include_fidelity: bool = True,
     ) -> HierarchicalExplanation:
         if top_messages < 1 or top_spans_per_message < 1:
             raise ValueError("top_messages e top_spans_per_message devem ser >= 1")
@@ -671,13 +701,17 @@ class HierarchicalPerturbationExplainer:
                 ranked_spans.append({**row, "rank_within_message": rank})
         ranked_spans.sort(key=_effect_sort_key)
 
-        fidelity_rows = self._cumulative_fidelity(
-            original=original,
-            neutral_vectors=prepared.neutral_vectors,
-            selected_messages=selected_messages,
-            baseline_logit=baseline_logit,
-            baseline_probability=baseline_probability,
-            predicted_label=predicted_label,
+        fidelity_rows = (
+            self._cumulative_fidelity(
+                original=original,
+                neutral_vectors=prepared.neutral_vectors,
+                selected_messages=selected_messages,
+                baseline_logit=baseline_logit,
+                baseline_probability=baseline_probability,
+                predicted_label=predicted_label,
+            )
+            if include_fidelity
+            else []
         )
         scam_spans = [row for row in span_rows if row["direction"] == "scam"]
         ham_spans = [row for row in span_rows if row["direction"] == "ham"]
@@ -1035,10 +1069,13 @@ def resolve_bge_finalist_checkpoint(
     )
 
 
-def load_bge_encoder(device=None):
+def load_bge_encoder(device=None, model_name: str | None = None):
     from sentence_transformers import SentenceTransformer
 
-    return SentenceTransformer(BGE_MODEL_NAME, device=str(device) if device is not None else None)
+    return SentenceTransformer(
+        model_name or BGE_MODEL_NAME,
+        device=str(device) if device is not None else None,
+    )
 
 
 def load_bge_finalist_model(

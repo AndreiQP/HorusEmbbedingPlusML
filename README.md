@@ -103,18 +103,30 @@ passo a passo completo (`submit_full_pipeline.sh`, `submit_all_models.sh`, etc.)
 
 ## 3. API + Extensão de navegador (demonstração / produção)
 
-- **`backend/api/main.py`** — API Flask que recebe o texto de uma conversa, gera os
-  embeddings (via `machine_learning/embedder.py`) e roda a predição (via
-  `machine_learning/predict.py`, usando o modelo FCNN salvo em `fcnn_trained/`),
-  retornando se a conversa é `Ham` ou `Scam`.
+- **`backend/api/main.py`** — API Flask que recebe turnos com os IDs dos balões,
+  executa o BGE-M3 + Transformer finalista seed 42 e, para decisões `Scam`, cria
+  uma explicação hierárquica assíncrona. O dispositivo padrão é
+  `HORUS_DEVICE=auto`: CUDA é preferida e CPU é o fallback.
 - **`horus_extension/`** — extensão de navegador (Manifest V3) que injeta um *content
-  script* no WhatsApp Web (`content.js`), captura as mensagens e as envia para a API via
-  `background.js`.
+  script* no WhatsApp Web (`content.js`), mantém IDs dos balões somente durante a
+  aba, aplica gatilhos lexicais locais e envia à API apenas as análises profundas.
+  A URL da API é configurável nas opções da extensão.
 - **`server.js`** (Node.js/Express) — proxy CORS opcional entre a extensão e a API
   Flask (porta 3000); dependências em `package.json`.
 
 Esses componentes são uma prova de conceito de como um dos modelos treinados poderia
 rodar em produção — o foco de desenvolvimento e experimentação está na biblioteca de ML.
+
+Para iniciar a API, disponibilize o checkpoint finalista e execute:
+
+```bash
+export HORUS_BGE_CHECKPOINT_ROOT=/caminho/para/experiment_results/transformer
+export HORUS_DEVICE=auto
+python -m backend.api.main
+```
+
+O contrato de IDs e as decisões do protótipo estão documentados em
+[`ONLINE_EXPLAINABILITY_PLAN.md`](backend/machine_learning/studies/ONLINE_EXPLAINABILITY_PLAN.md).
 
 ---
 

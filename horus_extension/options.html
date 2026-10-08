@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>IC Horus — Configuração</title>
+  <style>
+    body { font: 14px sans-serif; max-width: 620px; margin: 32px auto; padding: 0 18px; color: #222; }
+    label { display: block; font-weight: 700; margin-bottom: 8px; }
+    input { box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid #aaa; border-radius: 5px; }
+    button { margin-top: 12px; padding: 9px 16px; border: 0; border-radius: 5px; background: #157efb; color: white; cursor: pointer; }
+    #status { margin-top: 12px; min-height: 20px; }
+  </style>
+</head>
+<body>
+  <h1>IC Horus</h1>
+  <label for="api-url">URL da API BGE</label>
+  <input id="api-url" type="url" placeholder="http://localhost:5000">
+  <button id="save" type="button">Salvar</button>
+  <div id="status" role="status"></div>
+  <script src="options.js"></script>
+</body>
+</html>

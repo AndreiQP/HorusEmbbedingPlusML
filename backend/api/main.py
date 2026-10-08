@@ -1,116 +1,106 @@
+"""Flask API for the online Horus BGE Transformer."""
+
+from __future__ import annotations
+
 import os
 import sys
-import pandas as pd
-import numpy as np
-from flask import Flask, request, jsonify
+import threading
+from typing import Any
+
+from flask import Flask, jsonify, request
 from flask_cors import CORS
+
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from machine_learning.embedder import generate_analysis_embedding
-from machine_learning.predict import predict
-from config import EMBEDDERS
-
-PREDICT_MODEL = os.path.join(PROJECT_ROOT, 'fcnn_trained', 'with_augmented_all_data_fcnn.pth')
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
-def prepare_predict_data(df_final: pd.DataFrame) -> np.ndarray:
-    """
-    Filtra o DataFrame em formato longo gerado na inferência e empilha
-    os embeddings horizontalmente para alimentar o modelo Random Forest/SVM.
-    """
-    print("\n--- Preparando X para Predição (Ensembling Horizontal) ---")
-    
-    X_current_list = []
-    
-    for emb_name, _ in EMBEDDERS.items():
-        df_filtered = df_final[df_final['embedding_model'] == emb_name]
-        
-        X_numpy = np.array(df_filtered['text_embedded'].tolist(), dtype=np.float32)
-        print(f"Shape do X extraído para {emb_name}: {X_numpy.shape}")
-        X_current_list.append(X_numpy)
-        
-    try:
-        X_final = np.concatenate(X_current_list, axis=1)
-    except ValueError as e:
-        print("Erro de dimensão. Verifique se algum embedder gerou menos linhas que os outros (ex: falha na API ou dropna).")
-        raise e
-    
-    print(f"Shape final do X: {X_final.shape} -> (Total de Textos, Total de Features Concatenadas)")
-    return X_final
+from api.explainability_service import (  # noqa: E402
+    ContractError,
+    OnlineExplainabilityService,
+)
 
 
-# =====================================================================
-# FASE 1: Análise Superficial, apenas a primeira mensagem
-# =====================================================================
-@app.route('/api/analyse_message', methods=['POST'])
-def analyse_message():
-    print(f'Entrou em Analyse_message')
-    
-    data = request.get_json()
-    msg = data.get('mensagem', '')
-    contact = data.get('contato', 'Desconhecido')
+_SERVICE: OnlineExplainabilityService | None = None
+_SERVICE_LOCK = threading.Lock()
 
-    print(f"\n[Fase 1] Analisando mensagem isolada de {contact}: '{msg}'")
 
-    text = f'Suspect: {msg}'
-    df = pd.DataFrame({'text': [text], 'label': [None]})
+def get_service() -> OnlineExplainabilityService:
+    """Load BGE and the seed-42 Transformer once per API process."""
+    global _SERVICE
+    if _SERVICE is None:
+        with _SERVICE_LOCK:
+            if _SERVICE is None:
+                _SERVICE = OnlineExplainabilityService.from_environment()
+    return _SERVICE
 
-    df_analysis = generate_analysis_embedding(df)
-    
-    X_predict = prepare_predict_data(df_analysis)
 
-    is_scam, prob = predict(PREDICT_MODEL, X_predict)
+def create_app(service: Any | None = None) -> Flask:
+    app = Flask(__name__)
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    if service is not None:
+        app.config["HORUS_SERVICE"] = service
 
-    is_scam = is_scam[0]
-    prob = prob[0]
+    def active_service():
+        return app.config.get("HORUS_SERVICE") or get_service()
 
-    print('saida')
-    print(is_scam, prob)
+    @app.get("/api/health")
+    def health():
+        current = app.config.get("HORUS_SERVICE") or _SERVICE
+        return jsonify({
+            "status": "ok",
+            "modelLoaded": current is not None,
+            "device": getattr(getattr(current, "runtime", None), "device", None),
+        })
 
-    is_suspect = prob > 0.4
-    print(f" -> Resultado: Probabilidade {prob:.2f} ({'Requer Contexto' if is_suspect else 'Seguro'})")
+    @app.post("/api/analyse_message")
+    def analyse_message():
+        return jsonify({
+            "error": "deprecated_endpoint",
+            "message": "A pré-análise lexical agora é executada localmente pela extensão.",
+        }), 410
 
-    return jsonify({
-        "probabilidade": prob,
-        "isSuspect": is_suspect
-    })
+    @app.post("/api/analyse_history")
+    def analyse_history():
+        try:
+            payload = request.get_json(silent=False)
+            result = active_service().analyse(payload)
+            return jsonify(result)
+        except ContractError as exc:
+            return jsonify({"error": "invalid_request", "message": str(exc)}), 400
+        except (FileNotFoundError, RuntimeError) as exc:
+            app.logger.exception("Falha no serviço BGE")
+            return jsonify({
+                "error": "model_unavailable",
+                "message": str(exc),
+            }), 503
 
-# =====================================================================
-# FASE 2: Análise Profunda, todo o histórico
-# =====================================================================
-@app.route('/api/analyse_history', methods=['POST'])
-def analyse_history():
-    print(f'Entrou em Analyse_History')
+    @app.get("/api/explanations/<job_id>")
+    def explanation_status(job_id: str):
+        result = active_service().explanation_status(job_id)
+        if result is None:
+            return jsonify({
+                "error": "job_not_found",
+                "message": "Job inexistente ou expirado.",
+            }), 404
+        status = result.get("status")
+        status_code = (
+            202 if status in {"queued", "running"}
+            else 500 if status == "failed"
+            else 200
+        )
+        return jsonify(result), status_code
 
-    data = request.get_json()
-    history = data.get('historico', '')
-    contact = data.get('contato', 'Desconhecido')
+    return app
 
-    print(f"\n[Fase 2] Analisando HISTÓRICO COMPLETO de {contact}...")
-    print(f" -> Contexto recebido: {history[:150]}...") 
 
-    df = pd.DataFrame({'text': [history], 'label': [None]})
+app = create_app()
 
-    df_analysis = generate_analysis_embedding(df)
-    
-    X_predict = prepare_predict_data(df_analysis)
 
-    is_scam, prob = predict(PREDICT_MODEL, X_predict)
-
-    is_scam = is_scam[0]
-    prob = prob[0]
-
-    print(f" -> Resultado: Probabilidade {prob:.2f} ({'É SCAM!' if is_scam else 'Seguro'})")
-
-    return jsonify({
-        "probabilidade": f"{prob:.2f}",
-        "isScam": is_scam
-    })
-
-if __name__ == '__main__':
-    print("👁️ Backend IC Horus Iniciado na porta 5000...")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+if __name__ == "__main__":
+    service = get_service()
+    print(
+        "Horus BGE API iniciada na porta 5000 "
+        f"(device={getattr(service.runtime, 'device', 'unknown')})"
+    )
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
