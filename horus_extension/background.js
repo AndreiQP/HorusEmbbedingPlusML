@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = "http://localhost:5000";
+const DEFAULT_API_BASE_URL = "http://127.0.0.1:5500";
 
 console.log("IC Horus: background service worker iniciado.");
 
@@ -20,7 +20,12 @@ async function callApi(request) {
         options.body = JSON.stringify(request.dados);
     }
 
-    const response = await fetch(url, options);
+    let response;
+    try {
+        response = await fetch(url, options);
+    } catch (error) {
+        throw new Error(`Não foi possível acessar ${url}: ${error.message}`);
+    }
     const contentType = response.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
         const body = await response.text();

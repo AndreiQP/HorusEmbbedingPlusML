@@ -100,6 +100,14 @@ def test_span_crossing_balloons_returns_local_references() -> None:
             "direction": "scam",
             "delta_logit": 0.7,
         }],
+        _all_span_effects=[{
+            "model_index": 0,
+            "span_text": "part second",
+            "start_char": content_start + 6,
+            "end_char": content_start + 17,
+            "direction": "scam",
+            "delta_logit": 0.7,
+        }],
     )
 
     payload = format_online_explanation(conversation, explanation, "cpu")
@@ -110,6 +118,67 @@ def test_span_crossing_balloons_returns_local_references() -> None:
         {"balloonId": "b1", "startChar": 6, "endChar": 10, "text": "part"},
         {"balloonId": "b2", "startChar": 0, "endChar": 6, "text": "second"},
     ]
+    assert payload["items"][0]["dangerousSpan"]["balloonReferences"] == references
+
+
+def test_dangerous_span_prefers_scam_when_strongest_absolute_span_is_ham() -> None:
+    conversation = canonicalize_payload(_payload())
+    turn = conversation.turns[0]
+    content_start = turn.content_start
+    ham = {
+        "model_index": 0,
+        "rank_within_message": 1,
+        "span_text": "first part",
+        "start_char": content_start,
+        "end_char": content_start + 10,
+        "direction": "ham",
+        "delta_logit": -1.2,
+    }
+    scam = {
+        "model_index": 0,
+        "rank_within_message": 2,
+        "span_text": "second part",
+        "start_char": content_start + 11,
+        "end_char": content_start + 22,
+        "direction": "scam",
+        "delta_logit": 0.6,
+    }
+    explanation = SimpleNamespace(
+        baseline={"logit": 2.0, "probability_scam": 0.88, "predicted_label": 1},
+        top_messages=[{"model_index": 0, "direction": "scam", "delta_logit": 1.2}],
+        span_ranking=[ham],
+        _all_span_effects=[ham, scam],
+    )
+
+    item = format_online_explanation(conversation, explanation, "cpu")["items"][0]
+
+    assert item["span"]["direction"] == "ham"
+    assert item["dangerousSpan"]["direction"] == "scam"
+    assert item["dangerousSpan"]["text"] == "second part"
+
+
+def test_dangerous_span_is_null_when_message_has_no_positive_scam_span() -> None:
+    conversation = canonicalize_payload(_payload())
+    turn = conversation.turns[0]
+    ham = {
+        "model_index": 0,
+        "rank_within_message": 1,
+        "span_text": "first part",
+        "start_char": turn.content_start,
+        "end_char": turn.content_start + 10,
+        "direction": "ham",
+        "delta_logit": -0.8,
+    }
+    explanation = SimpleNamespace(
+        baseline={"logit": 2.0, "probability_scam": 0.88, "predicted_label": 1},
+        top_messages=[{"model_index": 0, "direction": "scam", "delta_logit": 1.2}],
+        span_ranking=[ham],
+        _all_span_effects=[ham],
+    )
+
+    item = format_online_explanation(conversation, explanation, "cpu")["items"][0]
+
+    assert item["dangerousSpan"] is None
 
 
 def test_ham_does_not_create_explanation_job() -> None:

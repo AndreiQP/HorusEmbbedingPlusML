@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = "http://localhost:5000";
+const DEFAULT_API_BASE_URL = "http://127.0.0.1:5500";
 
 async function loadOptions() {
     const stored = await chrome.storage.local.get({ horusApiBaseUrl: DEFAULT_API_BASE_URL });

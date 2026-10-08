@@ -403,6 +403,26 @@ def _balloon_references(
     return references
 
 
+def _online_span_payload(
+    turn: CanonicalTurn,
+    span_row: dict[str, Any] | None,
+    maximum: float,
+) -> dict[str, Any] | None:
+    if span_row is None:
+        return None
+    start = max(0, int(span_row["start_char"]) - turn.content_start)
+    end = min(len(turn.content), int(span_row["end_char"]) - turn.content_start)
+    return {
+        "text": str(span_row["span_text"]),
+        "turnStartChar": start,
+        "turnEndChar": end,
+        "direction": str(span_row["direction"]),
+        "deltaLogit": float(span_row["delta_logit"]),
+        "relativeImpact": _relative(float(span_row["delta_logit"]), maximum),
+        "balloonReferences": _balloon_references(turn, start, end),
+    }
+
+
 def format_online_explanation(
     conversation: CanonicalConversation,
     explanation,
@@ -414,6 +434,15 @@ def format_online_explanation(
         for row in explanation.span_ranking
         if int(row.get("rank_within_message", 0)) == 1
     }
+    all_span_effects = getattr(explanation, "_all_span_effects", explanation.span_ranking)
+    dangerous_spans_by_index: dict[int, dict[str, Any]] = {}
+    for row in all_span_effects:
+        if str(row.get("direction")) != "scam" or float(row.get("delta_logit", 0.0)) <= 1e-4:
+            continue
+        model_index = int(row["model_index"])
+        current = dangerous_spans_by_index.get(model_index)
+        if current is None or float(row["delta_logit"]) > float(current["delta_logit"]):
+            dangerous_spans_by_index[model_index] = row
     selected = [
         row for row in explanation.top_messages
         if int(row["model_index"]) in turns_by_index
@@ -425,24 +454,27 @@ def format_online_explanation(
         if int(row["model_index"]) in spans_by_index
     ]
     span_max = max((abs(float(row["delta_logit"])) for row in selected_spans), default=0.0)
+    selected_dangerous_spans = [
+        dangerous_spans_by_index[int(row["model_index"])]
+        for row in selected
+        if str(row.get("direction")) == "scam"
+        and int(row["model_index"]) in dangerous_spans_by_index
+    ]
+    dangerous_span_max = max(
+        (float(row["delta_logit"]) for row in selected_dangerous_spans),
+        default=0.0,
+    )
     items: list[dict[str, Any]] = []
     for rank, message_row in enumerate(selected, start=1):
         model_index = int(message_row["model_index"])
         turn = turns_by_index[model_index]
         span_row = spans_by_index.get(model_index)
-        span_payload = None
-        if span_row is not None:
-            start = max(0, int(span_row["start_char"]) - turn.content_start)
-            end = min(len(turn.content), int(span_row["end_char"]) - turn.content_start)
-            span_payload = {
-                "text": str(span_row["span_text"]),
-                "turnStartChar": start,
-                "turnEndChar": end,
-                "direction": str(span_row["direction"]),
-                "deltaLogit": float(span_row["delta_logit"]),
-                "relativeImpact": _relative(float(span_row["delta_logit"]), span_max),
-                "balloonReferences": _balloon_references(turn, start, end),
-            }
+        span_payload = _online_span_payload(turn, span_row, span_max)
+        dangerous_span_payload = _online_span_payload(
+            turn,
+            dangerous_spans_by_index.get(model_index),
+            dangerous_span_max,
+        )
         items.append({
             "rank": rank,
             "message": {
@@ -456,6 +488,7 @@ def format_online_explanation(
                 "relativeImpact": _relative(float(message_row["delta_logit"]), message_max),
             },
             "span": span_payload,
+            "dangerousSpan": dangerous_span_payload,
         })
     return {
         "device": device,
