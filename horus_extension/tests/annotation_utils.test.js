@@ -41,3 +41,30 @@ test("normaliza espaços mantendo o mapa para os nós originais", () => {
         { node: second, start: 2, end: 7 }
     ]);
 });
+
+test("rejeita DOM antigo e aguarda estabilização depois da troca de chat", () => {
+    let gate = {
+        chatId: "chat-b",
+        previousSignature: "assinatura-chat-a",
+        candidateSignature: null,
+        candidateSince: 0,
+        observations: 0
+    };
+
+    let outcome = utils.advanceCaptureGate(gate, "assinatura-chat-a", 1000, 400);
+    assert.equal(outcome.ready, false);
+    assert.equal(outcome.reason, "previous_chat_dom");
+
+    outcome = utils.advanceCaptureGate(outcome.gate, "assinatura-chat-b", 1100, 400);
+    assert.equal(outcome.ready, false);
+    assert.equal(outcome.reason, "new_candidate");
+
+    outcome = utils.advanceCaptureGate(outcome.gate, "assinatura-chat-b", 1300, 400);
+    assert.equal(outcome.ready, false);
+    assert.equal(outcome.reason, "settling");
+
+    outcome = utils.advanceCaptureGate(outcome.gate, "assinatura-chat-b", 1500, 400);
+    assert.equal(outcome.ready, true);
+    assert.equal(outcome.reason, "stable");
+    assert.equal(outcome.gate, null);
+});

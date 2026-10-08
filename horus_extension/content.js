@@ -9,9 +9,13 @@ let observedMain = null;
 let mainObserver = null;
 let scanScheduled = false;
 let pendingChatSelection = null;
+let captureGate = null;
+let lastStableVisibleSignature = null;
+let lastStableVisibleChatId = null;
 const decoratedBalloonElements = new Set();
 const CURRENT_HIGHLIGHT_NAME = "horus-scam-danger";
 const STALE_HIGHLIGHT_NAME = "horus-scam-danger-stale";
+const CHAT_CAPTURE_SETTLE_MS = 400;
 
 function sessionFor(chatId) {
     if (!chatSessions.has(chatId)) {
@@ -142,19 +146,21 @@ function chronologyFromMetadata(metadata) {
     return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-function speakerFor(element, mainElement) {
-    if (element.closest(".message-in")) return "Suspect";
-    if (element.closest(".message-out")) return "Innocent";
-    const textNode = element.matches("span")
-        ? element
-        : element.querySelector('span[data-testid="selectable-text"], span.copyable-text');
-    if (!textNode) return null;
-    const rect = textNode.getBoundingClientRect();
-    const mainRect = mainElement.getBoundingClientRect();
-    if (rect.width <= 0) return null;
-    return rect.left + rect.width / 2 < mainRect.left + mainRect.width / 2
+function messageContextFor(textNode) {
+    if (textNode.closest('footer, [contenteditable="true"], [data-testid="conversation-compose-box-input"]')) {
+        return null;
+    }
+    const directional = textNode.closest(".message-in, .message-out");
+    if (!directional) return null;
+    const element = textNode.closest('[data-testid="msg-container"]')
+        || textNode.closest("div[data-id]")
+        || directional;
+    const speaker = directional.classList.contains("message-in")
         ? "Suspect"
-        : "Innocent";
+        : directional.classList.contains("message-out")
+            ? "Innocent"
+            : null;
+    return speaker ? { element, speaker } : null;
 }
 
 function visibleBalloons(mainElement) {
@@ -166,13 +172,12 @@ function visibleBalloons(mainElement) {
     );
     for (const textNode of textNodes) {
         if (textNode.closest('[data-testid="quoted-message"]')) continue;
-        const element = textNode.closest(
-            'div[data-id], [data-testid="msg-container"], .message-in, .message-out'
-        ) || textNode;
+        const context = messageContextFor(textNode);
+        if (!context) continue;
+        const { element, speaker } = context;
         const content = readBalloonContent(element);
         const text = content.text;
-        const speaker = speakerFor(element, mainElement);
-        if (!text || !speaker) continue;
+        if (!text) continue;
         const metadataNode = textNode.closest("[data-pre-plain-text]")
             || element.querySelector?.("[data-pre-plain-text]");
         const metadata = metadataNode?.getAttribute("data-pre-plain-text") || "";
@@ -196,6 +201,50 @@ function visibleBalloons(mainElement) {
         });
     }
     return found;
+}
+
+function visibleSignature(visibleItems) {
+    const payload = visibleItems
+        .map((item) => `${item.balloonId}\u241f${item.speaker}\u241f${item.text}`)
+        .join("\u241e");
+    return `${visibleItems.length}:${stableHash(payload)}`;
+}
+
+function beginCaptureGate(chatId) {
+    captureGate = {
+        chatId,
+        previousSignature: lastStableVisibleChatId === chatId
+            ? null
+            : lastStableVisibleSignature,
+        candidateSignature: null,
+        candidateSince: 0,
+        observations: 0
+    };
+}
+
+function captureIsStable(chatId, visibleItems) {
+    const signature = visibleSignature(visibleItems);
+    if (!captureGate || captureGate.chatId !== chatId) {
+        lastStableVisibleSignature = signature;
+        lastStableVisibleChatId = chatId;
+        return true;
+    }
+
+    const outcome = globalThis.HorusAnnotationUtils.advanceCaptureGate(
+        captureGate,
+        signature,
+        Date.now(),
+        CHAT_CAPTURE_SETTLE_MS
+    );
+    captureGate = outcome.gate;
+    if (!outcome.ready) {
+        setTimeout(scheduleScan, 150);
+        return false;
+    }
+
+    lastStableVisibleSignature = signature;
+    lastStableVisibleChatId = chatId;
+    return true;
 }
 
 function reconcileChronology(state, visibleItems) {
@@ -682,6 +731,7 @@ function scanActiveChat() {
     if (detectedChat !== activeChatId) {
         clearWhatsappAnnotations();
         activeChatId = detectedChat;
+        beginCaptureGate(activeChatId);
         horusLog(`Chat ativo: ${activeChatId}`);
         document.getElementById("ic-horus-explanations")?.replaceChildren();
     }
@@ -716,6 +766,15 @@ function scanActiveChat() {
     const state = sessionFor(activeChatId);
     if (chatChanged) restoreConversationUi(state);
     const visible = visibleBalloons(mainElement);
+    if (!captureIsStable(activeChatId, visible)) {
+        clearWhatsappAnnotations();
+        updatePanel(state);
+        setAnalysisStatus(
+            "Aguardando estabilização das mensagens do chat...",
+            "#f39c12"
+        );
+        return;
+    }
     for (const item of visible) {
         const existing = state.messages.get(item.balloonId);
         if (!existing) {

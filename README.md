@@ -14,7 +14,12 @@ repositório reúne três partes:
    `backend/experiment_results/`) — dados brutos/processados e todo o histórico de
    modelos/métricas já treinados.
 
-Se você está chegando agora no projeto, **comece por aqui**, depois vá para
+Se você quer iniciar a API e a extensão, comece pelo [`starter.md`](starter.md). Para
+entender os componentes online, consulte também o
+[`README da API`](backend/api/README.md) e o
+[`README da extensão`](horus_extension/README.md).
+
+Se você está chegando agora na parte de pesquisa, **comece por aqui**, depois vá para
 [`backend/machine_learning/README.md`](backend/machine_learning/README.md) (explica cada
 arquivo da biblioteca) e, por fim, para o README da abordagem específica que te
 interessa (tabela abaixo).

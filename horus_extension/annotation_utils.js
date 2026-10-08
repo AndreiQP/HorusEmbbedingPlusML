@@ -93,7 +93,26 @@
         return segments;
     }
 
+    function advanceCaptureGate(gate, signature, now, settleMs) {
+        const next = { ...gate };
+        if (next.previousSignature && signature === next.previousSignature) {
+            return { ready: false, gate: next, reason: "previous_chat_dom" };
+        }
+        if (next.candidateSignature !== signature) {
+            next.candidateSignature = signature;
+            next.candidateSince = now;
+            next.observations = 1;
+            return { ready: false, gate: next, reason: "new_candidate" };
+        }
+        next.observations += 1;
+        if (next.observations < 2 || now - next.candidateSince < settleMs) {
+            return { ready: false, gate: next, reason: "settling" };
+        }
+        return { ready: true, gate: null, reason: "stable" };
+    }
+
     return {
+        advanceCaptureGate,
         canonicalizeMappedChunks,
         codePointOffsetToCodeUnit,
         exactOccurrences,
