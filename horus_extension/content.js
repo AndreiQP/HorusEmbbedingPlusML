@@ -146,20 +146,29 @@ function chronologyFromMetadata(metadata) {
     return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-function messageContextFor(textNode) {
+function messageContextFor(textNode, mainElement) {
     if (textNode.closest('footer, [contenteditable="true"], [data-testid="conversation-compose-box-input"]')) {
         return null;
     }
     const directional = textNode.closest(".message-in, .message-out");
-    if (!directional) return null;
     const element = textNode.closest('[data-testid="msg-container"]')
         || textNode.closest("div[data-id]")
-        || directional;
-    const speaker = directional.classList.contains("message-in")
+        || directional
+        || textNode;
+    let speaker = directional?.classList.contains("message-in")
         ? "Suspect"
-        : directional.classList.contains("message-out")
+        : directional?.classList.contains("message-out")
             ? "Innocent"
             : null;
+    if (!speaker && mainElement) {
+        const rect = textNode.getBoundingClientRect();
+        const mainRect = mainElement.getBoundingClientRect();
+        if (rect.width > 0 && mainRect.width > 0) {
+            speaker = rect.left + rect.width / 2 < mainRect.left + mainRect.width / 2
+                ? "Suspect"
+                : "Innocent";
+        }
+    }
     return speaker ? { element, speaker } : null;
 }
 
@@ -167,12 +176,19 @@ function visibleBalloons(mainElement) {
     const found = [];
     const seen = new Set();
     const fingerprintOccurrences = new Map();
-    const textNodes = mainElement.querySelectorAll(
+    let textNodes = [...mainElement.querySelectorAll(
         'span[data-testid="selectable-text"], span.copyable-text'
-    );
+    )];
+    if (!textNodes.length) {
+        textNodes = [...mainElement.querySelectorAll(
+            '[data-pre-plain-text], span.selectable-text, '
+            + '[data-testid="msg-container"] [dir="ltr"], '
+            + '.message-in [dir="ltr"], .message-out [dir="ltr"]'
+        )];
+    }
     for (const textNode of textNodes) {
         if (textNode.closest('[data-testid="quoted-message"]')) continue;
-        const context = messageContextFor(textNode);
+        const context = messageContextFor(textNode, mainElement);
         if (!context) continue;
         const { element, speaker } = context;
         const content = readBalloonContent(element);
@@ -213,6 +229,7 @@ function visibleSignature(visibleItems) {
 function beginCaptureGate(chatId) {
     captureGate = {
         chatId,
+        startedAt: Date.now(),
         previousSignature: lastStableVisibleChatId === chatId
             ? null
             : lastStableVisibleSignature,
@@ -225,6 +242,14 @@ function beginCaptureGate(chatId) {
 function captureIsStable(chatId, visibleItems) {
     const signature = visibleSignature(visibleItems);
     if (!captureGate || captureGate.chatId !== chatId) {
+        lastStableVisibleSignature = signature;
+        lastStableVisibleChatId = chatId;
+        return true;
+    }
+
+    const timedOut = Date.now() - captureGate.startedAt >= 2000;
+    if (timedOut && visibleItems.length) {
+        captureGate = null;
         lastStableVisibleSignature = signature;
         lastStableVisibleChatId = chatId;
         return true;

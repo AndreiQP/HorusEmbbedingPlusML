@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <title>Horus capture smoke test</title>
+    <style>
+        body { margin: 0; font-family: sans-serif; }
+        #pane-side { position: fixed; width: 240px; inset: 0 auto 0 0; }
+        #pane-side [role="listitem"] { padding: 20px; cursor: pointer; }
+        #main { margin-left: 240px; width: 700px; padding: 20px; }
+        .bubble { width: 220px; padding: 10px; margin: 12px 0; }
+        .incoming { margin-right: auto; }
+        .outgoing { margin-left: auto; }
+    </style>
+    <script>
+        globalThis.chrome = {
+            runtime: {
+                getURL: (path) => `/horus_extension/${path}`,
+                sendMessage: (_message, callback) => callback({ sucesso: false }),
+                lastError: null
+            }
+        };
+    </script>
+</head>
+<body>
+    <aside id="pane-side"><div role="listitem"><span title="Ana">Ana</span></div></aside>
+    <main id="main">
+        <header><span dir="auto" title="Ana">Ana</span></header>
+        <div class="bubble incoming message-in" data-id="message-1">
+            <span class="copyable-text" data-pre-plain-text="[10:00, 09/10/2026] Ana: ">Olá, tudo bem?</span>
+        </div>
+        <div class="bubble outgoing message-out" data-id="message-2">
+            <span class="copyable-text" data-pre-plain-text="[10:01, 09/10/2026] Eu: ">Tudo bem!</span>
+        </div>
+    </main>
+    <script>
+        if (new URLSearchParams(location.search).get("mode") === "geometry") {
+            document.querySelector(".incoming").classList.remove("message-in");
+            document.querySelector(".outgoing").classList.remove("message-out");
+        }
+    </script>
+    <script src="../triggers.js"></script>
+    <script src="../annotation_utils.js"></script>
+    <script src="../content.js"></script>
+    <script>
+        setTimeout(() => document.querySelector('#pane-side [role="listitem"]').click(), 50);
+        setTimeout(() => {
+            document.body.dataset.memoryResult = document.getElementById("ic-horus-contador")?.textContent || "missing";
+        }, 2600);
+    </script>
+</body>
+</html>
