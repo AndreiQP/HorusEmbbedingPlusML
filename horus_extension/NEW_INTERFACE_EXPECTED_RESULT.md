@@ -1,11 +1,11 @@
-# Resultado esperado para a futura interface do Horus
+# Resultado esperado para a interface do Horus
 
 ## Situação atual
 
-A branch `main` permanece como a versão operacional de referência, usando a interface
-antiga e o fluxo de captura que já funciona no WhatsApp Web. A tentativa de nova
-interface permanece isolada na branch `feature/new_interface` e não deve ser incorporada
-à `main` enquanto os critérios deste documento não forem comprovados no WhatsApp real.
+A branch `main` permanece como a versão operacional de referência do fluxo de captura.
+A nova implementação visual está isolada em `feature/new_interface_v2` e não deve ser
+incorporada à `main` enquanto os critérios deste documento não forem comprovados no
+WhatsApp real.
 
 ## Objetivo visual
 

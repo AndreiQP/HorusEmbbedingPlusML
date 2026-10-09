@@ -12,6 +12,7 @@
         .incoming { margin-right: auto; }
         .outgoing { margin-left: auto; }
     </style>
+    <link rel="stylesheet" href="../interface.css">
     <script>
         globalThis.chrome = {
             runtime: {
@@ -41,11 +42,32 @@
     </script>
     <script src="../triggers.js"></script>
     <script src="../annotation_utils.js"></script>
+    <script src="../interface.js"></script>
     <script src="../content.js"></script>
     <script>
         setTimeout(() => document.querySelector('#pane-side [role="listitem"]').click(), 50);
         setTimeout(() => {
             document.body.dataset.memoryResult = document.getElementById("ic-horus-contador")?.textContent || "missing";
+            const parameters = new URLSearchParams(location.search);
+            if (parameters.get("state") === "scam") {
+                globalThis.HorusInterface.updateConversation({
+                    chatId: "Ana",
+                    balloonCount: 2,
+                    conversationVersion: 1,
+                    classification: { isScam: true, probabilityScam: 0.91, conversationVersion: 1, device: "cuda" }
+                });
+                globalThis.HorusInterface.renderExplanation({
+                    items: [{
+                        rank: 1,
+                        message: { speaker: "Suspect", text: "Olá, tudo bem?", direction: "scam", balloonIds: ["message-1"] },
+                        dangerousSpan: { text: "Olá", direction: "scam" }
+                    }]
+                });
+            }
+            if (parameters.get("panel") === "open") {
+                document.getElementById("ic-horus-toggle")?.click();
+                document.body.dataset.panelOpen = document.getElementById("ic-horus-panel")?.dataset.open || "missing";
+            }
         }, 2600);
     </script>
 </body>

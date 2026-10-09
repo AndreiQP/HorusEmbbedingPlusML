@@ -28,7 +28,9 @@ um clique explícito na conversa e existe somente na aba atual.
 |---|---|
 | `manifest.json` | Permissões, content scripts e service worker. |
 | `background.js` | Executa as requisições HTTP fora do contexto da página. |
-| `content.js` | Captura balões, mantém sessões, chama a API, atualiza o painel e aplica marcações. |
+| `content.js` | Motor funcional: captura balões, mantém sessões, chama a API e aplica marcações. |
+| `interface.js` | Camada visual: recebe snapshots do motor e renderiza gaveta, estados e evidências. |
+| `interface.css` | Aparência isolada do painel, escudo, carregamento, ajuda e cartões. |
 | `triggers.js` | Regras lexicais da pré-análise local. |
 | `annotation_utils.js` | Conversão de offsets Unicode/UTF-16 e mapeamento seguro do texto para o DOM. |
 | `options.html` / `options.js` | Configuração da URL da API. |
@@ -53,24 +55,34 @@ A ordem combina a ordem atual do DOM, balões já conhecidos e o timestamp dispo
 `data-pre-plain-text`. Isso permite inserir mensagens antigas carregadas após rolagem
 sem colocá-las depois das mensagens recentes.
 
-Somente elementos dentro de `.message-in` ou `.message-out` são aceitos como balões.
-Campos `contenteditable`, o rodapé de composição e mensagens citadas são excluídos, de
-modo que rascunhos e estados intermediários de digitação nunca entrem no histórico. Na
-troca de conversa, a captura aguarda duas observações estáveis e rejeita a assinatura do
-DOM anterior antes de associar mensagens ao novo chat.
+Quando disponíveis, `.message-in` e `.message-out` fornecem a direção do balão. Como o
+WhatsApp altera classes internas com frequência, a captura tem um fallback geométrico
+dentro da área da conversa. Campos `contenteditable`, o rodapé de composição e mensagens
+citadas são excluídos, de modo que rascunhos e estados intermediários de digitação nunca
+entrem no histórico. Na troca de conversa, a captura aguarda observações estáveis e
+rejeita a assinatura do DOM anterior antes de associar mensagens ao novo chat.
 
-## Classificação por conversa
+## Interface e classificação por conversa
 
-O ícone representa a conversa atualmente aberta:
+A interface é uma aba fixa na lateral direita. Ela usa exclusivamente
+`util/logo_recod.png` dentro de um escudo e abre uma gaveta com estados claros:
 
-- `👁️`: ainda não analisada;
-- `✅`: Ham;
-- `⚠️`: Scam.
+- aguardando uma conversa ou um gatilho;
+- classificando com BGE + Transformer;
+- localizando evidências;
+- Scam, Ham ou falha.
 
-O painel mostra a probabilidade de Scam. Se novas mensagens chegarem depois da
-classificação, o resultado é identificado como anterior à versão atual até que outra
-análise seja executada. Trocar de conversa restaura o estado correto de cada sessão e
-uma resposta atrasada da API nunca altera o chat errado.
+O painel mostra a probabilidade de Scam e abre automaticamente somente para um novo
+resultado Scam. O botão `?` explica as etapas do resultado. Logs, dispositivo, contagem
+de balões e exportação ficam recolhidos em **Detalhes técnicos**. Se novas mensagens
+chegarem depois da classificação, o resultado é identificado como anterior à versão
+atual até que outra análise seja executada. Trocar de conversa restaura o estado correto
+de cada sessão e uma resposta atrasada da API nunca altera o chat errado.
+
+`interface.js` não acessa `chatSessions`, não observa o DOM do WhatsApp e não chama a
+API. `content.js` envia somente snapshots para a interface e fornece callbacks para as
+ações existentes. Assim, uma falha visual é registrada no console e não interrompe a
+captura ou a análise.
 
 ## Marcação no WhatsApp
 
@@ -106,6 +118,7 @@ contornado, mas nenhum trecho incorreto é realçado.
 ```bash
 node --test horus_extension/tests/annotation_utils.test.js
 node --check horus_extension/annotation_utils.js
+node --check horus_extension/interface.js
 node --check horus_extension/content.js
 node --check horus_extension/background.js
 node --check horus_extension/options.js

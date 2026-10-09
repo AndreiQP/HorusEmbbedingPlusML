@@ -36,22 +36,21 @@ function sessionFor(chatId) {
 
 function horusLog(message) {
     originalConsoleLog(`[IC Horus] ${message}`);
-    const terminal = document.getElementById("ic-horus-terminal");
-    if (!terminal) return;
-    const line = document.createElement("div");
-    line.textContent = `> ${message}`;
-    terminal.appendChild(line);
-    terminal.scrollTop = terminal.scrollHeight;
+    try {
+        globalThis.HorusInterface?.log(message);
+    } catch (error) {
+        originalConsoleLog("[IC Horus] Falha apenas na interface:", error);
+    }
 }
 
 function setAnalysisStatus(text, color = "#f39c12", chatId = activeChatId) {
     const state = chatId ? chatSessions.get(chatId) : null;
     if (state) state.analysisStatus = { text, color };
     if (chatId && chatId !== activeChatId) return;
-    const status = document.getElementById("ic-horus-analysis-status");
-    if (status) {
-        status.textContent = text;
-        status.style.color = color;
+    try {
+        globalThis.HorusInterface?.setStatus(text, color);
+    } catch (error) {
+        originalConsoleLog("[IC Horus] Falha apenas na interface:", error);
     }
 }
 
@@ -481,47 +480,10 @@ function applyWhatsappAnnotations(state, visibleItems) {
 }
 
 function renderExplanation(result, stale = false) {
-    const container = document.getElementById("ic-horus-explanations");
-    if (!container) return;
-    container.replaceChildren();
-
-    if (stale) {
-        const warning = document.createElement("div");
-        warning.textContent = "Esta explicação pertence a uma versão anterior da conversa.";
-        warning.style.cssText = "color:#f39c12;font-size:11px;margin-bottom:8px;";
-        container.appendChild(warning);
-    }
-
-    for (const item of result.items || []) {
-        const displayedSpan = item.dangerousSpan || item.span;
-        const card = document.createElement("div");
-        card.dataset.turnId = item.message.turnId;
-        card.dataset.balloonIds = (item.message.balloonIds || []).join(",");
-        card.style.cssText = `
-            background:#151515;border-left:4px solid ${directionColor(displayedSpan?.direction || item.message.direction)};
-            border-radius:5px;padding:8px;margin-bottom:8px;color:#eee;font-size:11px;
-        `;
-
-        const heading = document.createElement("div");
-        heading.style.cssText = "font-weight:bold;margin-bottom:4px;color:#fff;";
-        heading.textContent = `#${item.rank} ${item.message.speaker} — ${directionLabel(displayedSpan?.direction || item.message.direction)}`;
-
-        const message = document.createElement("div");
-        message.style.cssText = "color:#bbb;margin-bottom:5px;white-space:normal;";
-        message.textContent = item.message.text;
-
-        const span = document.createElement("div");
-        span.style.cssText = "font-weight:bold;color:#fff;margin-bottom:5px;";
-        span.textContent = displayedSpan ? `Trecho: “${displayedSpan.text}”` : "Trecho perigoso não encontrado";
-
-        const impactTrack = document.createElement("div");
-        impactTrack.style.cssText = "height:5px;background:#333;border-radius:3px;overflow:hidden;";
-        const impact = document.createElement("div");
-        impact.style.cssText = `height:100%;width:${Math.round(100 * (displayedSpan?.relativeImpact || item.message.relativeImpact || 0))}%;background:${directionColor(displayedSpan?.direction || item.message.direction)};`;
-        impactTrack.appendChild(impact);
-
-        card.append(heading, message, span, impactTrack);
-        container.appendChild(card);
+    try {
+        globalThis.HorusInterface?.renderExplanation(result, stale);
+    } catch (error) {
+        originalConsoleLog("[IC Horus] Falha apenas na interface:", error);
     }
 }
 
@@ -662,43 +624,22 @@ function maybeTriggerAnalysis(state) {
 }
 
 function updatePanel(state) {
-    const counter = document.getElementById("ic-horus-contador");
-    const chatStatus = document.getElementById("ic-horus-chatid");
-    if (counter) counter.textContent = `Memória da aba: ${state?.chronologicalIds.length || 0} balões`;
-    if (chatStatus) chatStatus.textContent = activeChatId ? `Contato: ${activeChatId}` : "Contato: nenhum";
+    try {
+        globalThis.HorusInterface?.updateConversation({
+            chatId: activeChatId,
+            balloonCount: state?.chronologicalIds.length || 0,
+            classification: state?.classification || null,
+            conversationVersion: state?.conversationVersion || 0
+        });
+    } catch (error) {
+        originalConsoleLog("[IC Horus] Falha apenas na interface:", error);
+    }
     applyConversationVisual(state);
 }
 
 function applyConversationVisual(state) {
-    const toggle = document.getElementById("ic-horus-toggle");
-    const label = document.getElementById("ic-horus-classification");
-    const classification = state?.classification;
-    if (!classification) {
-        if (toggle) {
-            toggle.textContent = "👁️";
-            toggle.style.backgroundColor = "#141414";
-            toggle.style.borderColor = "#25D366";
-            toggle.title = "Conversa ainda não analisada";
-        }
-        if (label) {
-            label.textContent = state ? "Classificação: ainda não analisada" : "Classificação: memória não iniciada";
-            label.style.color = "#95a5a6";
-        }
-        return;
-    }
-
-    const probability = Math.max(0, Math.min(1, Number(classification.probabilityScam || 0)));
-    const stale = classification.conversationVersion !== state.conversationVersion;
-    if (toggle) {
-        toggle.textContent = classification.isScam ? "⚠️" : "✅";
-        toggle.style.backgroundColor = classification.isScam ? "#c0392b" : "#16803a";
-        toggle.style.borderColor = classification.isScam ? "#ff6b5f" : "#2ecc71";
-        toggle.title = `${classification.isScam ? "Scam" : "Ham"}: ${(probability * 100).toFixed(1)}% de Scam`;
-    }
-    if (label) {
-        label.textContent = `${classification.isScam ? "Scam" : "Ham"} — ${(probability * 100).toFixed(1)}% de Scam${stale ? " (há mensagens novas)" : ""}`;
-        label.style.color = classification.isScam ? "#e74c3c" : "#2ecc71";
-    }
+    // A apresentação da classificação pertence ao módulo de interface.
+    // Esta função é mantida como fronteira compatível com o fluxo funcional existente.
 }
 
 function restoreConversationUi(state) {
@@ -865,84 +806,32 @@ function exportCurrentChat() {
     URL.revokeObjectURL(url);
 }
 
+function focusEvidenceBalloon(balloonIds = []) {
+    const requested = new Set(balloonIds);
+    const mainElement = document.getElementById("main");
+    if (!requested.size || !mainElement) return;
+    const target = visibleBalloons(mainElement).find((item) => requested.has(item.balloonId));
+    if (!target?.domElement) {
+        horusLog("Role a conversa para carregar a mensagem destacada.");
+        return;
+    }
+    target.domElement.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.domElement.classList.remove("horus-focus-pulse");
+    requestAnimationFrame(() => target.domElement.classList.add("horus-focus-pulse"));
+    setTimeout(() => target.domElement?.classList.remove("horus-focus-pulse"), 1600);
+}
+
 function injectPanel() {
-    if (document.getElementById("ic-horus-panel")) return;
     ensureAnnotationStyles();
-    const panel = document.createElement("div");
-    panel.id = "ic-horus-panel";
-    panel.style.cssText = "position:fixed;top:150px;left:15px;z-index:10000;display:flex;align-items:flex-start;gap:10px;font-family:sans-serif;";
-
-    const toggle = document.createElement("button");
-    toggle.id = "ic-horus-toggle";
-    toggle.textContent = "👁️";
-    toggle.style.cssText = "width:44px;height:44px;background:#141414;color:#fff;border:2px solid #25D366;border-radius:50%;cursor:grab;box-shadow:0 4px 6px rgba(0,0,0,.4);font-size:20px;";
-
-    const body = document.createElement("div");
-    body.id = "ic-horus-body";
-    body.style.cssText = "display:none;width:360px;max-height:70vh;overflow:auto;background:#141414;border:2px solid #25D366;border-radius:10px;padding:14px;box-shadow:0 5px 15px rgba(0,0,0,.5);font-family:monospace;";
-
-    const title = document.createElement("strong");
-    title.textContent = "IC Horus — análise dinâmica";
-    title.style.cssText = "display:block;color:#fff;font-family:sans-serif;margin-bottom:6px;";
-    const chat = document.createElement("div");
-    chat.id = "ic-horus-chatid";
-    chat.style.cssText = "color:#f39c12;font-size:12px;font-weight:bold;word-break:break-all;";
-    const counter = document.createElement("div");
-    counter.id = "ic-horus-contador";
-    counter.style.cssText = "color:#25D366;font-size:12px;font-weight:bold;";
-    const classification = document.createElement("div");
-    classification.id = "ic-horus-classification";
-    classification.textContent = "Classificação: memória não iniciada";
-    classification.style.cssText = "color:#95a5a6;font-size:12px;font-weight:bold;margin-top:4px;";
-    const status = document.createElement("div");
-    status.id = "ic-horus-analysis-status";
-    status.textContent = "Aguardando mensagens";
-    status.style.cssText = "color:#95a5a6;font-size:11px;margin:7px 0;";
-    const terminal = document.createElement("div");
-    terminal.id = "ic-horus-terminal";
-    terminal.style.cssText = "height:70px;overflow:auto;background:#000;color:#0f0;font-size:10px;padding:5px;border-radius:5px;border:1px solid #333;margin-bottom:8px;";
-    const explanations = document.createElement("div");
-    explanations.id = "ic-horus-explanations";
-
-    const buttons = document.createElement("div");
-    buttons.style.cssText = "display:flex;gap:5px;margin-bottom:8px;";
-    const analyse = document.createElement("button");
-    analyse.textContent = "Forçar IA";
-    analyse.style.cssText = "flex:1;background:#3498db;color:#fff;border:0;padding:8px;border-radius:5px;cursor:pointer;font-weight:bold;";
-    analyse.onclick = () => sendDeepAnalysis();
-    const download = document.createElement("button");
-    download.textContent = "Baixar TXT";
-    download.style.cssText = "flex:1;background:#25D366;color:#000;border:0;padding:8px;border-radius:5px;cursor:pointer;font-weight:bold;";
-    download.onclick = exportCurrentChat;
-    buttons.append(analyse, download);
-    body.append(title, chat, counter, classification, status, terminal, buttons, explanations);
-    panel.append(toggle, body);
-    document.body.appendChild(panel);
-
-    let open = false;
-    let dragging = false;
-    let moved = false;
-    let offsetX = 0;
-    let offsetY = 0;
-    toggle.addEventListener("mousedown", (event) => {
-        dragging = true;
-        moved = false;
-        const rect = panel.getBoundingClientRect();
-        offsetX = event.clientX - rect.left;
-        offsetY = event.clientY - rect.top;
-    });
-    document.addEventListener("mousemove", (event) => {
-        if (!dragging) return;
-        moved = true;
-        panel.style.left = `${event.clientX - offsetX}px`;
-        panel.style.top = `${event.clientY - offsetY}px`;
-    });
-    document.addEventListener("mouseup", () => { dragging = false; });
-    toggle.addEventListener("click", () => {
-        if (moved) return;
-        open = !open;
-        body.style.display = open ? "block" : "none";
-    });
+    try {
+        globalThis.HorusInterface?.mount({
+            onAnalyse: () => sendDeepAnalysis(),
+            onExport: exportCurrentChat,
+            onLocate: focusEvidenceBalloon
+        });
+    } catch (error) {
+        originalConsoleLog("[IC Horus] Falha apenas ao montar a interface:", error);
+    }
 }
 
 injectPanel();
