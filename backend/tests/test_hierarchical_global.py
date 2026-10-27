@@ -77,6 +77,30 @@ def test_sufficiency_distance_definition_is_never_negative():
     assert distance >= 0.0
 
 
+def test_long_conversation_preserves_full_alignment_and_model_window():
+    conversation = " ".join(
+        f"{'Suspect' if index % 2 == 0 else 'Innocent'}: turn {index}"
+        for index in range(540)
+    )
+
+    full_turns = parse_conversation(conversation, max_turns=None)
+    model_turns = parse_conversation(conversation)
+
+    assert len(full_turns) == 540
+    assert len(model_turns) == 100
+    assert model_turns[0].original_index == 440
+    assert model_turns[-1].original_index == 539
+
+
+def test_parser_reproduces_embedding_split_rule_for_empty_markers():
+    turns = parse_conversation(
+        "Suspect: first Innocent: second Suspect:"
+    )
+
+    assert len(turns) == 2
+    assert turns[-1].text == "Innocent: second Suspect:"
+
+
 def test_union_candidates_cover_absolute_and_decision_supporting_messages():
     torch = pytest.importorskip("torch")
 

@@ -33,7 +33,11 @@ RANKING_POLICIES = frozenset({
     RANKING_ABSOLUTE_INFLUENCE,
     RANKING_DECISION_SUPPORTING,
 })
-TURN_MARKER_RE = re.compile(r"(?<!\S)(?P<speaker>Innocent|Suspect):")
+# Replica exatamente a regra usada para criar ``text_embedded`` em
+# embedder.get_message_chunks(): o marcador só abre um turno quando há um
+# espaço depois dos dois-pontos. Isso evita tratar mensagens vazias como um
+# turno que nunca recebeu embedding.
+TURN_MARKER_RE = re.compile(r"(?P<speaker>Innocent|Suspect):(?= )")
 WORD_RE = re.compile(r"\S+")
 
 
@@ -137,11 +141,19 @@ def select_message_evidence(
     return enriched[:min(top_messages, len(enriched))]
 
 
-def parse_conversation(text: str, max_turns: int = 100) -> list[ConversationTurn]:
-    """Separa turnos, preserva offsets e replica o corte dos últimos 100 turnos."""
+def parse_conversation(
+    text: str,
+    max_turns: int | None = 100,
+) -> list[ConversationTurn]:
+    """Separa turnos e preserva offsets.
+
+    Por padrão replica a janela do Transformer (últimos 100 turnos). Use
+    ``max_turns=None`` somente para auditorias do alinhamento integral entre o
+    texto fonte e a sequência de embeddings armazenada.
+    """
     if not isinstance(text, str) or not text.strip():
         raise ValueError("A conversa deve conter texto")
-    if max_turns < 1:
+    if max_turns is not None and max_turns < 1:
         raise ValueError("max_turns deve ser >= 1")
     markers = list(TURN_MARKER_RE.finditer(text))
     if not markers:
@@ -165,7 +177,7 @@ def parse_conversation(text: str, max_turns: int = 100) -> list[ConversationTurn
             original_index, marker.group("speaker"), message, content_start, start, end,
         ))
 
-    selected = parsed[-max_turns:]
+    selected = parsed if max_turns is None else parsed[-max_turns:]
     return [
         ConversationTurn(
             original_index=original_index,

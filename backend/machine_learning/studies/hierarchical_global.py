@@ -46,6 +46,7 @@ HIERARCHICAL_EXPLAINABILITY_ROOT = TRANSFORMER_STUDIES / "hierarchical_explainab
 STUDY_SCHEMA_VERSION = 2
 DEFAULT_SEEDS = (42, 52, 62)
 EXPECTED_SPLIT_COUNTS = {"test_internal": 1390, "validation": 1083}
+MODEL_MAX_TURNS = 100
 
 
 def _atomic_parquet(path: Path, frame: pd.DataFrame) -> None:
@@ -282,12 +283,25 @@ def build_global_inventory(
             raise ReproductionError(f"Rótulos desalinhados no inventário: {split}")
         predictions = np.asarray(bundle["y_pred"]).astype(int)
         for index, sample_id in enumerate(ids):
-            n_turns = len(parse_conversation(text_by_id[sample_id]))
-            embedding_turns = int(len(sequences[index]))
-            if n_turns != embedding_turns:
+            source_text_turns = len(parse_conversation(
+                text_by_id[sample_id], max_turns=None,
+            ))
+            source_embedding_turns = int(len(sequences[index]))
+            if source_text_turns != source_embedding_turns:
                 raise ReproductionError(
                     f"Alinhamento texto/embedding inválido em {split}/{sample_id}: "
-                    f"{n_turns} turnos textuais e {embedding_turns} embeddings"
+                    f"{source_text_turns} turnos textuais e "
+                    f"{source_embedding_turns} embeddings antes do corte"
+                )
+            n_turns = len(parse_conversation(
+                text_by_id[sample_id], max_turns=MODEL_MAX_TURNS,
+            ))
+            embedding_turns = int(len(sequences[index][-MODEL_MAX_TURNS:]))
+            if n_turns != embedding_turns:
+                raise ReproductionError(
+                    f"Janela texto/embedding inválida em {split}/{sample_id}: "
+                    f"{n_turns} turnos textuais e {embedding_turns} embeddings "
+                    "após o corte"
                 )
             rows.append({
                 "split": split,
@@ -298,6 +312,8 @@ def build_global_inventory(
                 "prediction_category": _category(labels[index], predictions[index]),
                 "n_turns": n_turns,
                 "embedding_turns": embedding_turns,
+                "source_n_turns": source_text_turns,
+                "source_embedding_turns": source_embedding_turns,
             })
     frame = pd.DataFrame(rows).sort_values(["split", "sample_id"]).reset_index(drop=True)
     observed_counts = frame.groupby("split")["sample_id"].nunique().to_dict()
