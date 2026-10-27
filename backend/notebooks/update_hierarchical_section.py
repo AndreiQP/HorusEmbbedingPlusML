@@ -40,6 +40,9 @@ def read_hierarchical_parquet(relative):
 hierarchical_coverage = read_hierarchical_parquet('aggregates/coverage.parquet')
 hierarchical_curves = read_hierarchical_parquet('aggregates/fidelity_curves.parquet')
 hierarchical_metrics = read_hierarchical_parquet('aggregates/metric_distributions.parquet')
+hierarchical_saturation_curves = read_hierarchical_parquet('aggregates/saturation_curves.parquet')
+hierarchical_saturation_fraction_curves = read_hierarchical_parquet('aggregates/saturation_fraction_curves.parquet')
+hierarchical_saturation_points = read_hierarchical_parquet('aggregates/saturation_points.parquet')
 hierarchical_control_summary = read_hierarchical_parquet('aggregates/random_control_summary.parquet')
 hierarchical_controls = pd.concat([
     read_hierarchical_parquet(f'{split}/random_controls.parquet')
@@ -96,6 +99,86 @@ plot_hierarchical_curve('comprehensiveness', 'Comprehensiveness por Top-k', 'Que
     'Sufficiency distance por Top-k',
     '|P(classe prevista | conversa) − P(classe prevista | evidências)|',
 )
+"""),
+    markdown("""### 3A. Saturação da explicação além das Top-6
+
+O **logit** é o valor bruto produzido pelo classificador antes da sigmoid. Em probabilidades próximas de 0 ou 1, uma mudança relevante no logit pode parecer quase nula após a sigmoid. Por isso, a curva abaixo usa `comprehensiveness_logit_aligned`: positivo sempre significa queda do suporte à classe prevista após remover mensagens.
+
+`k95` é o primeiro número de mensagens que alcança 95% do maior comprehensiveness em logit observado para aquela conversa. Ele também é apresentado como fração do total de mensagens. A sufficiency distance mede a distância entre a decisão original e a decisão usando somente as evidências; **menor é melhor**.
+"""),
+    code("""if not hierarchical_saturation_curves.empty:
+    decision = hierarchical_saturation_curves[
+        (hierarchical_saturation_curves.ranking_policy.eq('decision_supporting')) &
+        (hierarchical_saturation_curves.split.eq('validation'))
+    ]
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    for ax, metric, title, ylabel in [
+        (axes[0], 'comprehensiveness_logit_aligned', 'Comprehensiveness conjunto em logit', 'Queda alinhada do logit'),
+        (axes[1], 'sufficiency_distance_logit', 'Sufficiency distance em logit', '|logit original − logit somente evidências|'),
+    ]:
+        view = decision[decision.metric.eq(metric)].sort_values('top_k')
+        ax.plot(view.top_k, view['mean'], color=HIER_SPLIT_COLORS['validation'], marker='o', ms=3, label='validation — média')
+        ax.fill_between(view.top_k, view.ci95_low, view.ci95_high, color=HIER_SPLIT_COLORS['validation'], alpha=.18, label='IC95%')
+        ax.set(title=f'{title}\\nGLOBAL | validation | decision_supporting | seed 42', xlabel='Mensagens removidas/acumuladas (k)', ylabel=ylabel)
+        ax.grid(alpha=.25); ax.legend()
+    plt.tight_layout(); plt.show()
+    display(decision[decision.metric.isin(['comprehensiveness_logit_aligned', 'sufficiency_distance_logit'])][['metric', 'top_k', 'n', 'mean', 'std', 'ci95_low', 'ci95_high']])
+"""),
+    markdown("### 3B. Mesmas curvas pela fração da conversa utilizada"),
+    code("""if not hierarchical_saturation_fraction_curves.empty:
+    decision_fraction = hierarchical_saturation_fraction_curves[
+        hierarchical_saturation_fraction_curves.ranking_policy.eq('decision_supporting')
+    ]
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    for ax, metric, title, ylabel in [
+        (axes[0], 'comprehensiveness_logit_aligned', 'Comprehensiveness versus tamanho da conversa', 'Queda alinhada do logit'),
+        (axes[1], 'sufficiency_distance_logit', 'Sufficiency versus tamanho da conversa', 'Distância de sufficiency no logit'),
+    ]:
+        for split, group in decision_fraction[decision_fraction.metric.eq(metric)].groupby('split'):
+            group = group.sort_values('removed_fraction_bin')
+            ax.plot(100 * group.removed_fraction_bin, group['mean'], marker='o', color=HIER_SPLIT_COLORS[split], label=split)
+            ax.fill_between(100 * group.removed_fraction_bin, group.ci95_low, group.ci95_high, color=HIER_SPLIT_COLORS[split], alpha=.14)
+        ax.set(title=f'{title}\\nGLOBAL | decision_supporting | seed 42', xlabel='% do total de mensagens acumuladas', ylabel=ylabel)
+        ax.grid(alpha=.25); ax.legend(title='Split / IC95%')
+    plt.tight_layout(); plt.show()
+"""),
+    markdown("### 3C. Quantas mensagens são necessárias para atingir k95?"),
+    code("""if not hierarchical_saturation_points.empty:
+    reached = hierarchical_saturation_points[hierarchical_saturation_points.status.eq('reached')]
+    fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+    sns.boxplot(data=reached, x='split', y='k95', palette=HIER_SPLIT_COLORS, showfliers=False, ax=axes[0])
+    axes[0].set_title('Mensagens para alcançar 95% do máximo observado'); axes[0].set_ylabel('k95 (mensagens)')
+    sns.boxplot(data=reached, x='split', y='k95_fraction_total', palette=HIER_SPLIT_COLORS, showfliers=False, ax=axes[1])
+    axes[1].set_title('k95 relativo ao tamanho da conversa'); axes[1].set_ylabel('k95 / total de mensagens')
+    axes[1].yaxis.set_major_formatter(lambda value, _: f'{100*value:.0f}%')
+    plt.tight_layout(); plt.show()
+    display(reached.groupby('split').agg(
+        conversas=('sample_id', 'nunique'),
+        k95_mediana=('k95', 'median'),
+        k95_media=('k95', 'mean'),
+        fracao_mediana=('k95_fraction_total', 'median'),
+        fracao_media=('k95_fraction_total', 'mean'),
+        sufficiency_logit_k95=('sufficiency_distance_logit_at_k95', 'mean'),
+    ))
+"""),
+    markdown("""### 3D. Massa aditiva de evidência
+
+Estas curvas são somas e, portanto, não diminuem. `absolute_influence` soma os módulos dos impactos individuais; `decision_supporting` soma somente impactos alinhados à decisão. Elas **não são comprehensiveness**, pois não reavaliam conjuntamente as interações do Transformer.
+"""),
+    code("""if not hierarchical_saturation_curves.empty:
+    mass = hierarchical_saturation_curves[
+        (hierarchical_saturation_curves.split.eq('validation')) &
+        (hierarchical_saturation_curves.metric.eq('cumulative_evidence_mass_logit'))
+    ]
+    plt.figure(figsize=(10, 5))
+    colors = {'decision_supporting': '#16a34a', 'absolute_influence': '#7c3aed'}
+    for policy, group in mass.groupby('ranking_policy'):
+        group = group.sort_values('top_k')
+        plt.plot(group.top_k, group['mean'], marker='o', ms=3, color=colors[policy], label=f'{policy} (N varia por k)')
+        plt.fill_between(group.top_k, group.ci95_low, group.ci95_high, color=colors[policy], alpha=.14)
+    plt.title('Massa acumulada de evidência — GLOBAL | validation | seed 42')
+    plt.xlabel('Quantidade acumulada de mensagens'); plt.ylabel('Soma acumulada de impactos no logit')
+    plt.grid(alpha=.25); plt.legend(title='Política / IC95%'); plt.show()
 """),
     markdown("### 4–5. Distribuições globais por split e Top-k"),
     code("""if not hierarchical_metrics.empty:

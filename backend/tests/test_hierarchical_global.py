@@ -101,6 +101,46 @@ def test_parser_reproduces_embedding_split_rule_for_empty_markers():
     assert turns[-1].text == "Innocent: second Suspect:"
 
 
+def test_saturation_point_uses_first_k_reaching_95_percent_of_observed_maximum():
+    import pandas as pd
+
+    frame = pd.DataFrame([
+        {
+            "split": "validation", "sample_id": "case", "top_k": 1,
+            "ranking_policy": RANKING_DECISION_SUPPORTING,
+            "comprehensiveness_logit_aligned": 1.0,
+            "total_messages": 10, "selected_available": 4,
+            "removed_fraction_total": .1, "comprehensiveness": .01,
+            "sufficiency_distance": .30, "sufficiency_distance_logit": 3.0,
+            "prediction_category": "TP", "predicted_label": 1,
+        },
+        {
+            "split": "validation", "sample_id": "case", "top_k": 2,
+            "ranking_policy": RANKING_DECISION_SUPPORTING,
+            "comprehensiveness_logit_aligned": 4.8,
+            "total_messages": 10, "selected_available": 4,
+            "removed_fraction_total": .2, "comprehensiveness": .08,
+            "sufficiency_distance": .10, "sufficiency_distance_logit": 1.0,
+            "prediction_category": "TP", "predicted_label": 1,
+        },
+        {
+            "split": "validation", "sample_id": "case", "top_k": 3,
+            "ranking_policy": RANKING_DECISION_SUPPORTING,
+            "comprehensiveness_logit_aligned": 5.0,
+            "total_messages": 10, "selected_available": 4,
+            "removed_fraction_total": .3, "comprehensiveness": .10,
+            "sufficiency_distance": .05, "sufficiency_distance_logit": .5,
+            "prediction_category": "TP", "predicted_label": 1,
+        },
+    ])
+
+    point = global_study._saturation_points(frame).iloc[0]
+
+    assert point["k95"] == 2
+    assert point["k95_fraction_total"] == pytest.approx(.2)
+    assert point["sufficiency_distance_logit_at_k95"] == pytest.approx(1.0)
+
+
 def test_union_candidates_cover_absolute_and_decision_supporting_messages():
     torch = pytest.importorskip("torch")
 
@@ -209,3 +249,22 @@ def test_global_shard_and_aggregation_write_complete_parquets(monkeypatch, tmp_p
     coverage = __import__("pandas").read_parquet(destination / "aggregates" / "coverage.parquet")
     assert coverage.loc[coverage.top_k.eq(1), "N_k"].item() == 2
     assert (destination / "test_internal" / "message_effects.parquet").is_file()
+
+    saturation_shard = global_study.run_saturation_shard(
+        split="test_internal", shard_index=0, shard_count=1,
+        output_root=tmp_path, device="cpu",
+    )
+    assert (saturation_shard / "complete.json").is_file()
+    global_study.aggregate_saturation_results(
+        output_root=tmp_path, expected_shards=1, splits=("test_internal",),
+    )
+    saturation = __import__("pandas").read_parquet(
+        tmp_path / "aggregates" / "saturation_curves.parquet"
+    )
+    assert set(saturation.ranking_policy) == {
+        RANKING_ABSOLUTE_INFLUENCE, RANKING_DECISION_SUPPORTING,
+    }
+    assert {
+        "comprehensiveness_logit_aligned", "sufficiency_distance_logit",
+        "cumulative_evidence_mass_logit",
+    }.issubset(set(saturation.metric))

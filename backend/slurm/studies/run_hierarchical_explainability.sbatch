@@ -13,6 +13,7 @@ CHECKPOINT_ROOT="${HORUS_CHECKPOINT_ROOT:-$PROJECT_ROOT/backend/experiment_resul
 OUTPUT_DIR="${HIER_STUDY_OUTPUT_DIR:-$PROJECT_ROOT/backend/experiment_results/transformer/studies/hierarchical_explainability}"
 SHARD_COUNT="${HIER_STUDY_SHARD_COUNT:-32}"
 SPLIT="${HIER_STUDY_SPLIT:?HIER_STUDY_SPLIT ausente}"
+GPU_ACTION="${HIER_STUDY_GPU_ACTION:-shard}"
 
 cd "$PROJECT_ROOT"
 source /home/andrei.pinto/miniconda3/etc/profile.d/conda.sh
@@ -36,7 +37,7 @@ for seed in "${stability_seeds[@]}"; do
 done
 
 python -m machine_learning.studies hierarchical-study \
-    --action shard \
+    --action "$GPU_ACTION" \
     --split "$SPLIT" \
     --shard-index "${SLURM_ARRAY_TASK_ID:?SLURM_ARRAY_TASK_ID ausente}" \
     --shard-count "$SHARD_COUNT" \

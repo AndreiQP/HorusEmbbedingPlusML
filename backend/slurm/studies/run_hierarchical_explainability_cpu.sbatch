@@ -26,6 +26,11 @@ elif [[ "$ACTION" == "aggregate" ]]; then
         --action aggregate --split all \
         --shard-count "${HIER_STUDY_SHARD_COUNT:-32}" \
         --output-dir "$OUTPUT_DIR"
+elif [[ "$ACTION" == "saturation-aggregate" ]]; then
+    python -m machine_learning.studies hierarchical-study \
+        --action saturation-aggregate --split all \
+        --shard-count "${HIER_STUDY_SHARD_COUNT:-32}" \
+        --output-dir "$OUTPUT_DIR"
 else
     echo "Ação CPU inválida: $ACTION" >&2
     exit 2

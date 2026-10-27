@@ -22,8 +22,10 @@ from .hierarchical_perturbation import (
 from .hierarchical_global import (
     HIERARCHICAL_EXPLAINABILITY_ROOT,
     aggregate_global_results,
+    aggregate_saturation_results,
     build_global_inventory,
     run_global_shard,
+    run_saturation_shard,
 )
 from .report import build_studies_report
 from .slurm import write_slurm_grids
@@ -74,7 +76,13 @@ def parser() -> argparse.ArgumentParser:
         ),
     )
     study = sub.add_parser("hierarchical-study")
-    study.add_argument("--action", required=True, choices=["inventory", "shard", "aggregate"])
+    study.add_argument(
+        "--action", required=True,
+        choices=[
+            "inventory", "shard", "aggregate",
+            "saturation-shard", "saturation-aggregate",
+        ],
+    )
     study.add_argument("--split", choices=["test_internal", "validation", "all"], default="all")
     study.add_argument("--shard-index", type=int)
     study.add_argument("--shard-count", type=int, default=32)
@@ -190,9 +198,11 @@ def main(argv=None) -> int:
                 "artifacts_dir": str(Path(args.output_dir)),
                 "conversations": frame.groupby("split")["sample_id"].nunique().to_dict(),
             }
-        elif args.action == "shard":
+        elif args.action in {"shard", "saturation-shard"}:
             if args.split == "all" or args.shard_index is None:
-                raise ValueError("--action shard exige --split explícito e --shard-index")
+                raise ValueError(
+                    f"--action {args.action} exige --split explícito e --shard-index"
+                )
             if args.device == "cuda" and not torch.cuda.is_available():
                 raise RuntimeError("CUDA foi exigida, mas não está disponível")
             device = (
@@ -201,25 +211,41 @@ def main(argv=None) -> int:
                 else torch.device("cuda" if torch.cuda.is_available() else "cpu")
             )
             try:
-                destination = run_global_shard(
-                    split=args.split,
-                    shard_index=args.shard_index,
-                    shard_count=args.shard_count,
-                    primary_seed=args.primary_seed,
-                    seeds=tuple(args.stability_seed or (42, 52, 62)),
-                    top_messages=args.top_messages,
-                    max_ngram=args.max_ngram,
-                    top_spans_per_message=args.top_spans_per_message,
-                    controls_per_span=args.controls_per_span,
-                    device=device,
-                    output_root=args.output_dir,
-                    checkpoint_root=args.checkpoint_root,
-                    resume=not args.no_resume,
-                )
+                if args.action == "saturation-shard":
+                    destination = run_saturation_shard(
+                        split=args.split,
+                        shard_index=args.shard_index,
+                        shard_count=args.shard_count,
+                        primary_seed=args.primary_seed,
+                        device=device,
+                        output_root=args.output_dir,
+                        checkpoint_root=args.checkpoint_root,
+                        resume=not args.no_resume,
+                    )
+                else:
+                    destination = run_global_shard(
+                        split=args.split,
+                        shard_index=args.shard_index,
+                        shard_count=args.shard_count,
+                        primary_seed=args.primary_seed,
+                        seeds=tuple(args.stability_seed or (42, 52, 62)),
+                        top_messages=args.top_messages,
+                        max_ngram=args.max_ngram,
+                        top_spans_per_message=args.top_spans_per_message,
+                        controls_per_span=args.controls_per_span,
+                        device=device,
+                        output_root=args.output_dir,
+                        checkpoint_root=args.checkpoint_root,
+                        resume=not args.no_resume,
+                    )
             except Exception as exc:
                 import traceback
+                shard_folder = (
+                    "saturation_shards"
+                    if args.action == "saturation-shard" else "shards"
+                )
                 failure_dir = (
-                    Path(args.output_dir) / args.split / "shards"
+                    Path(args.output_dir) / args.split / shard_folder
                     / f"shard-{args.shard_index:05d}"
                 )
                 atomic_json(failure_dir / "failure.json", {
@@ -228,13 +254,23 @@ def main(argv=None) -> int:
                 })
                 raise
             result = {"artifacts_dir": str(destination), "device": str(device)}
-        else:
+        elif args.action == "aggregate":
             destination = aggregate_global_results(
                 output_root=args.output_dir,
                 expected_shards=args.shard_count,
                 splits=splits,
             )
             result = {"artifacts_dir": str(destination), "status": "complete"}
+        else:
+            destination = aggregate_saturation_results(
+                output_root=args.output_dir,
+                expected_shards=args.shard_count,
+                splits=splits,
+            )
+            result = {
+                "artifacts_dir": str(destination),
+                "status": "saturation_complete",
+            }
     elif args.command == "aggregate":
         result = aggregate_dataset_size_results()
         try:

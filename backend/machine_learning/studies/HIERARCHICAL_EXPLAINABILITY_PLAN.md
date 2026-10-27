@@ -37,6 +37,20 @@ bash backend/slurm/studies/submit_hierarchical_explainability.sh \
   --shards 32 --exclude-node dl-01
 ```
 
+Quando os artefatos globais principais já existem, execute apenas o estudo de
+saturação das curvas de fidelity:
+
+```bash
+bash backend/slurm/studies/submit_hierarchical_explainability.sh \
+  --saturation-only --shards 32
+```
+
+Esse caminho usa somente a seed 42, não recalcula n-grams e avalia a remoção
+cumulativa desde Top-1 até todas as mensagens disponíveis. `k95` é o primeiro
+`k` que alcança 95% do maior comprehensiveness alinhado no logit observado na
+conversa. Os resultados registram tanto `k` quanto `k / total_de_mensagens` e
+as curvas correspondentes de sufficiency.
+
 Cada shard tem manifesto, hashes dos Parquets e `complete.json`. Uma nova
 submissão reutiliza shards íntegros; arquivos incompletos ou com checksum
 divergente são recalculados.
@@ -48,6 +62,11 @@ Os artefatos ficam em
 As pastas dos splits contêm resultados por conversa; `aggregates/` contém
 curvas, distribuições, cobertura `N_k`, controles e estabilidade. O notebook
 `backend/notebooks/judge_decision.ipynb` lê somente esses artefatos na seção de explicabilidade.
+
+As curvas adicionais de saturação ficam em
+`aggregates/saturation_curves.parquet`,
+`saturation_fraction_curves.parquet`, `saturation_points.parquet` e
+`saturation_summary.parquet`.
 
 `N_k` é a quantidade de conversas com ao menos `k` turnos. `metric_N_k` é a
 quantidade que também possui ao menos `k` evidências válidas alinhadas à

@@ -534,6 +534,380 @@ def run_global_shard(
     return destination
 
 
+def _extended_fidelity_rows(
+    explainer: HierarchicalPerturbationExplainer,
+    *,
+    original: np.ndarray,
+    neutral_vectors: np.ndarray,
+    message_rows: Sequence[dict[str, Any]],
+    baseline_logit: float,
+    baseline_probability: float,
+    predicted_label: int,
+    sample_id: str,
+    split: str,
+    policy: str,
+) -> list[dict[str, Any]]:
+    """Calcula a curva completa sem confundir massa aditiva com fidelidade."""
+    selected = select_message_evidence(
+        message_rows,
+        predicted_label=predicted_label,
+        top_messages=len(message_rows),
+        ranking_policy=policy,
+    )
+    rows = explainer._cumulative_fidelity(
+        original=original,
+        neutral_vectors=neutral_vectors,
+        selected_messages=selected,
+        baseline_logit=baseline_logit,
+        baseline_probability=baseline_probability,
+        predicted_label=predicted_label,
+    )
+    evidence_mass = 0.0
+    previous_aligned_logit = 0.0
+    total_messages = len(message_rows)
+    selected_count = len(selected)
+    output: list[dict[str, Any]] = []
+    for row, message in zip(rows, selected):
+        if policy == RANKING_ABSOLUTE_INFLUENCE:
+            evidence_mass += abs(float(message["delta_logit"]))
+        else:
+            evidence_mass += max(0.0, float(message["class_support_delta"]))
+        raw_logit_delta = baseline_logit - float(row["removed_logit"])
+        aligned_logit_delta = class_support_delta(raw_logit_delta, predicted_label)
+        raw_sufficiency_logit_gap = baseline_logit - float(row["sufficient_logit"])
+        aligned_sufficiency_logit_gap = class_support_delta(
+            raw_sufficiency_logit_gap, predicted_label,
+        )
+        enriched = {
+            **row,
+            "sample_id": sample_id,
+            "split": split,
+            "seed": int(explainer.seed),
+            "ranking_policy": policy,
+            "total_messages": total_messages,
+            "selected_available": selected_count,
+            "removed_fraction_total": float(row["top_k"]) / total_messages,
+            "removed_fraction_selected": (
+                float(row["top_k"]) / selected_count if selected_count else math.nan
+            ),
+            "comprehensiveness_abs": abs(float(row["comprehensiveness"])),
+            "comprehensiveness_logit_raw": raw_logit_delta,
+            "comprehensiveness_logit_aligned": aligned_logit_delta,
+            "comprehensiveness_logit_abs": abs(raw_logit_delta),
+            "comprehensiveness_logit_marginal": (
+                aligned_logit_delta - previous_aligned_logit
+            ),
+            "sufficiency_distance": abs(float(row["sufficiency_gap"])),
+            "sufficiency_gap_logit_raw": raw_sufficiency_logit_gap,
+            "sufficiency_gap_logit_aligned": aligned_sufficiency_logit_gap,
+            "sufficiency_distance_logit": abs(raw_sufficiency_logit_gap),
+            "cumulative_evidence_mass_logit": evidence_mass,
+        }
+        previous_aligned_logit = aligned_logit_delta
+        output.append(enriched)
+    return output
+
+
+def run_saturation_shard(
+    *,
+    split: str,
+    shard_index: int,
+    shard_count: int,
+    primary_seed: int = 42,
+    device: Any = None,
+    output_root: str | Path = HIERARCHICAL_EXPLAINABILITY_ROOT,
+    checkpoint_root: str | Path | None = None,
+    resume: bool = True,
+) -> Path:
+    """Expande fidelity até todas as mensagens, sem executar a etapa de n-grams."""
+    if split not in {"test_internal", "validation"}:
+        raise ValueError("split deve ser test_internal ou validation")
+    if shard_count < 1 or not 0 <= shard_index < shard_count:
+        raise ValueError("shard_index/shard_count inválidos")
+    checkpoint = resolve_bge_finalist_checkpoint(primary_seed, checkpoint_root)
+    run_config = {
+        "version": STUDY_SCHEMA_VERSION,
+        "analysis": "fidelity_saturation",
+        "split": split,
+        "shard_index": shard_index,
+        "shard_count": shard_count,
+        "primary_seed": primary_seed,
+        "checkpoint_sha256": sha256_file(checkpoint),
+        "saturation_fraction": 0.95,
+    }
+    run_hash = stable_hash(run_config)
+    destination = (
+        Path(output_root) / split / "saturation_shards" / f"shard-{shard_index:05d}"
+    )
+    if resume and _completed_shard_is_valid(destination, run_hash):
+        return destination
+
+    sequences, labels, ids, text_by_id = _dataset("bge", split)
+    ids = np.asarray(ids).astype(str)
+    labels = np.asarray(labels).astype(int)
+    ordered = sorted(
+        range(len(ids)), key=lambda index: hashlib.sha256(ids[index].encode()).hexdigest(),
+    )
+    selected_indices = [
+        index for position, index in enumerate(ordered)
+        if position % shard_count == shard_index
+    ]
+    if not selected_indices:
+        raise ValueError(f"Shard vazio: {shard_index}/{shard_count}")
+
+    encoder = load_bge_encoder(device=device)
+    model, metadata = load_bge_finalist_model(
+        seed=primary_seed, device=device, checkpoint_root=checkpoint_root,
+    )
+    explainer = HierarchicalPerturbationExplainer(
+        model, encoder, device=device, seed=primary_seed, model_metadata=metadata,
+    )
+    bundle = ModelCache.load_prediction_bundle("transformer", metadata["run_id"], split)
+    if not np.array_equal(np.asarray(bundle["sample_ids"]).astype(str), ids):
+        raise ReproductionError(f"Bundle desalinhado: split={split}, seed={primary_seed}")
+    if not np.array_equal(np.asarray(bundle["y_true"]).astype(int), labels):
+        raise ReproductionError(f"Rótulos do bundle desalinhados: split={split}")
+
+    neutral_lookup = dict(zip(
+        ("Innocent", "Suspect"), explainer._encode(["Innocent:", "Suspect:"]),
+    ))
+    output: list[dict[str, Any]] = []
+    conversation_rows: list[dict[str, Any]] = []
+    for index in selected_indices:
+        sample_id = ids[index]
+        turns = parse_conversation(text_by_id[sample_id], max_turns=MODEL_MAX_TURNS)
+        original = np.asarray(sequences[index], dtype=np.float32)[-MODEL_MAX_TURNS:]
+        original = explainer._validated_original_embeddings(turns, original)
+        neutral_vectors = np.stack([
+            np.asarray(neutral_lookup[turn.speaker], dtype=np.float32) for turn in turns
+        ])
+        baseline_logit, baseline_probability, message_rows, supporting = (
+            explainer._score_macro(
+                turns, original, neutral_vectors, len(turns),
+                ranking_policy=RANKING_DECISION_SUPPORTING,
+            )
+        )
+        expected_probability = float(np.asarray(bundle["y_prob"])[index])
+        if not np.isclose(
+            baseline_probability, expected_probability,
+            atol=explainer.reproduction_atol, rtol=explainer.reproduction_rtol,
+        ):
+            raise ReproductionError(
+                f"Probabilidade não reproduzida para {sample_id}: "
+                f"{baseline_probability} != {expected_probability}"
+            )
+        predicted_label = int(baseline_probability >= 0.5)
+        absolute = select_message_evidence(
+            message_rows,
+            predicted_label=predicted_label,
+            top_messages=len(message_rows),
+            ranking_policy=RANKING_ABSOLUTE_INFLUENCE,
+        )
+        common = {
+            "sample_id": sample_id,
+            "split": split,
+            "seed": primary_seed,
+            "label": int(labels[index]),
+            "predicted_label": predicted_label,
+            "prediction_category": _category(labels[index], predicted_label),
+            "baseline_logit": baseline_logit,
+            "baseline_probability_scam": baseline_probability,
+            "total_messages": len(turns),
+            "decision_supporting_available": len(supporting),
+            "absolute_influence_available": len(absolute),
+        }
+        conversation_rows.append(common)
+        for policy in (RANKING_DECISION_SUPPORTING, RANKING_ABSOLUTE_INFLUENCE):
+            rows = _extended_fidelity_rows(
+                explainer,
+                original=original,
+                neutral_vectors=neutral_vectors,
+                message_rows=message_rows,
+                baseline_logit=baseline_logit,
+                baseline_probability=baseline_probability,
+                predicted_label=predicted_label,
+                sample_id=sample_id,
+                split=split,
+                policy=policy,
+            )
+            output.extend({**common, **row} for row in rows)
+
+    frames = {
+        "fidelity_saturation": pd.DataFrame(output),
+        "saturation_conversations": pd.DataFrame(conversation_rows),
+    }
+    for name, frame in frames.items():
+        _atomic_parquet(destination / f"{name}.parquet", frame)
+    checksums = {
+        f"{name}.parquet": sha256_file(destination / f"{name}.parquet")
+        for name in frames
+    }
+    atomic_json(destination / "manifest.json", {
+        **run_config,
+        "run_hash": run_hash,
+        "sample_count": len(selected_indices),
+        "sample_ids": ids[selected_indices].tolist(),
+        "model": metadata,
+        "encoder": encoder_provenance(encoder),
+        "checksums": checksums,
+    })
+    mark_complete(destination, {
+        "run_hash": run_hash,
+        "sample_count": len(selected_indices),
+        "checksums": checksums,
+    })
+    return destination
+
+
+def _saturation_points(
+    frame: pd.DataFrame,
+    conversations: pd.DataFrame | None = None,
+    fraction: float = 0.95,
+) -> pd.DataFrame:
+    """Primeiro k que alcança uma fração do máximo conjunto observado."""
+    rows: list[dict[str, Any]] = []
+    supporting = frame[frame["ranking_policy"].eq(RANKING_DECISION_SUPPORTING)]
+    for (split, sample_id), group in supporting.groupby(["split", "sample_id"]):
+        group = group.sort_values("top_k")
+        maximum = max(0.0, float(group["comprehensiveness_logit_aligned"].max()))
+        if maximum <= 1e-12:
+            rows.append({
+                "split": split,
+                "sample_id": sample_id,
+                "status": "no_positive_effect",
+                "max_comprehensiveness_logit_aligned": maximum,
+                "k95": math.nan,
+                "k95_fraction_total": math.nan,
+            })
+            continue
+        threshold = fraction * maximum
+        candidates = group[group["comprehensiveness_logit_aligned"].ge(threshold)]
+        point = candidates.iloc[0]
+        rows.append({
+            "split": split,
+            "sample_id": sample_id,
+            "status": "reached",
+            "saturation_fraction": fraction,
+            "max_comprehensiveness_logit_aligned": maximum,
+            "k95": int(point["top_k"]),
+            "total_messages": int(point["total_messages"]),
+            "selected_available": int(point["selected_available"]),
+            "k95_fraction_total": float(point["removed_fraction_total"]),
+            "comprehensiveness_at_k95": float(point["comprehensiveness"]),
+            "comprehensiveness_logit_at_k95": float(
+                point["comprehensiveness_logit_aligned"]
+            ),
+            "sufficiency_distance_at_k95": float(point["sufficiency_distance"]),
+            "sufficiency_distance_logit_at_k95": float(
+                point["sufficiency_distance_logit"]
+            ),
+            "prediction_category": point["prediction_category"],
+            "predicted_label": int(point["predicted_label"]),
+        })
+    if conversations is not None:
+        observed = {(str(row["split"]), str(row["sample_id"])) for row in rows}
+        for conversation in conversations.to_dict(orient="records"):
+            key = (str(conversation["split"]), str(conversation["sample_id"]))
+            if key in observed:
+                continue
+            rows.append({
+                "split": key[0],
+                "sample_id": key[1],
+                "status": "no_supporting_evidence",
+                "max_comprehensiveness_logit_aligned": 0.0,
+                "k95": math.nan,
+                "k95_fraction_total": math.nan,
+                "total_messages": int(conversation["total_messages"]),
+                "selected_available": 0,
+                "prediction_category": conversation["prediction_category"],
+                "predicted_label": int(conversation["predicted_label"]),
+            })
+    return pd.DataFrame(rows)
+
+
+def aggregate_saturation_results(
+    *,
+    output_root: str | Path = HIERARCHICAL_EXPLAINABILITY_ROOT,
+    expected_shards: int,
+    splits: Sequence[str] = ("test_internal", "validation"),
+) -> Path:
+    root = Path(output_root)
+    all_fidelity: list[pd.DataFrame] = []
+    all_conversations: list[pd.DataFrame] = []
+    for split in splits:
+        shards = [
+            root / split / "saturation_shards" / f"shard-{index:05d}"
+            for index in range(expected_shards)
+        ]
+        missing = [str(path) for path in shards if not (path / "complete.json").exists()]
+        if missing:
+            raise RuntimeError(f"Shards de saturação incompletos em {split}: {missing[:5]}")
+        seen: set[str] = set()
+        for shard in shards:
+            manifest = json.loads((shard / "manifest.json").read_text(encoding="utf-8"))
+            if not _completed_shard_is_valid(shard, str(manifest["run_hash"])):
+                raise RuntimeError(f"Checksum inválido no shard de saturação: {shard}")
+            duplicate = seen.intersection(manifest["sample_ids"])
+            if duplicate:
+                raise RuntimeError(f"sample_ids duplicados em {split}: {sorted(duplicate)[:5]}")
+            seen.update(manifest["sample_ids"])
+        fidelity = pd.concat([
+            pd.read_parquet(path / "fidelity_saturation.parquet") for path in shards
+        ], ignore_index=True)
+        conversations = pd.concat([
+            pd.read_parquet(path / "saturation_conversations.parquet") for path in shards
+        ], ignore_index=True)
+        _atomic_parquet(root / split / "fidelity_saturation.parquet", fidelity)
+        _atomic_parquet(root / split / "saturation_conversations.parquet", conversations)
+        all_fidelity.append(fidelity)
+        all_conversations.append(conversations)
+
+    fidelity = pd.concat(all_fidelity, ignore_index=True)
+    conversations = pd.concat(all_conversations, ignore_index=True)
+    metrics = (
+        "comprehensiveness", "comprehensiveness_abs",
+        "comprehensiveness_logit_aligned", "comprehensiveness_logit_abs",
+        "comprehensiveness_logit_marginal", "sufficiency_gap",
+        "sufficiency_distance", "sufficiency_gap_logit_aligned",
+        "sufficiency_distance_logit", "cumulative_evidence_mass_logit",
+    )
+    curves = _metric_summaries(
+        fidelity, ["split", "ranking_policy", "top_k"], metrics,
+    )
+    normalized = fidelity.copy()
+    normalized["removed_fraction_bin"] = np.minimum(
+        1.0, np.ceil(normalized["removed_fraction_total"] * 20.0) / 20.0,
+    )
+    normalized = (
+        normalized.sort_values("top_k")
+        .drop_duplicates(
+            ["split", "sample_id", "ranking_policy", "removed_fraction_bin"],
+            keep="last",
+        )
+    )
+    fraction_curves = _metric_summaries(
+        normalized, ["split", "ranking_policy", "removed_fraction_bin"], metrics,
+    )
+    points = _saturation_points(fidelity, conversations=conversations)
+    reached = points[points["status"].eq("reached")]
+    point_summary = _metric_summaries(
+        reached,
+        ["split"],
+        [
+            "k95", "k95_fraction_total", "max_comprehensiveness_logit_aligned",
+            "sufficiency_distance_at_k95", "sufficiency_distance_logit_at_k95",
+        ],
+    )
+    aggregate_root = root / "aggregates"
+    _atomic_parquet(aggregate_root / "saturation_curves.parquet", curves)
+    _atomic_parquet(aggregate_root / "saturation_fraction_curves.parquet", fraction_curves)
+    _atomic_parquet(aggregate_root / "saturation_points.parquet", points)
+    _atomic_parquet(aggregate_root / "saturation_summary.parquet", point_summary)
+    _atomic_parquet(aggregate_root / "saturation_conversations.parquet", conversations)
+    atomic_csv(aggregate_root / "saturation_summary.csv", point_summary)
+    return root
+
+
 def _bootstrap_ci(values: np.ndarray, *, seed: int = 42, draws: int = 1000) -> tuple[float, float]:
     values = values[np.isfinite(values)]
     if not len(values):
