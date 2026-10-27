@@ -43,6 +43,8 @@ hierarchical_metrics = read_hierarchical_parquet('aggregates/metric_distribution
 hierarchical_saturation_curves = read_hierarchical_parquet('aggregates/saturation_curves.parquet')
 hierarchical_saturation_fraction_curves = read_hierarchical_parquet('aggregates/saturation_fraction_curves.parquet')
 hierarchical_saturation_points = read_hierarchical_parquet('aggregates/saturation_points.parquet')
+hierarchical_saturation_conversations = read_hierarchical_parquet('aggregates/saturation_conversations.parquet')
+hierarchical_validation_saturation = read_hierarchical_parquet('validation/fidelity_saturation.parquet')
 hierarchical_control_summary = read_hierarchical_parquet('aggregates/random_control_summary.parquet')
 hierarchical_controls = pd.concat([
     read_hierarchical_parquet(f'{split}/random_controls.parquet')
@@ -179,6 +181,120 @@ Estas curvas são somas e, portanto, não diminuem. `absolute_influence` soma os
     plt.title('Massa acumulada de evidência — GLOBAL | validation | seed 42')
     plt.xlabel('Quantidade acumulada de mensagens'); plt.ylabel('Soma acumulada de impactos no logit')
     plt.grid(alpha=.25); plt.legend(title='Política / IC95%'); plt.show()
+"""),
+    markdown("""### 3E. Auditoria qualitativa — três conversas completas de validation
+
+Por padrão são escolhidos deterministicamente: um TP, um TN e um erro de classificação (FN primeiro; FP como fallback), sempre próximos da mediana de `k95 / total de mensagens` de sua categoria. Defina `HIER_VALIDATION_EXAMPLE_IDS` com três IDs para auditar casos específicos.
+
+Cada tabela mantém **todas as mensagens na ordem da conversa**. `rank_decision` ordena somente evidências que sustentam a classe prevista; `selecionada_ate_k95` mostra quais mensagens formam a explicação até o ponto de saturação. `rank_absolute` mantém também impactos contrários à decisão.
+"""),
+    code("""HIER_VALIDATION_EXAMPLE_IDS = None  # exemplo: ['id-1', 'id-2', 'id-3']
+
+def choose_validation_audit_examples(points, requested=None):
+    available = points[(points.split.eq('validation')) & points.status.eq('reached')].copy()
+    if requested:
+        requested = [str(value) for value in requested]
+        missing = sorted(set(requested) - set(available.sample_id.astype(str)))
+        if missing:
+            raise ValueError(f'IDs sem resultado de saturação em validation: {missing}')
+        return requested[:3]
+    chosen = []
+    for category in ('TP', 'TN'):
+        group = available[available.prediction_category.eq(category)].copy()
+        if not group.empty:
+            median = group.k95_fraction_total.median()
+            group['distance_to_category_median'] = (group.k95_fraction_total - median).abs()
+            chosen.append(str(group.sort_values(['distance_to_category_median', 'sample_id']).iloc[0].sample_id))
+    error = available[available.prediction_category.isin(['FN', 'FP'])].copy()
+    if not error.empty:
+        error['error_priority'] = error.prediction_category.map({'FN': 0, 'FP': 1})
+        category = error.sort_values(['error_priority', 'sample_id']).iloc[0].prediction_category
+        group = error[error.prediction_category.eq(category)].copy()
+        median = group.k95_fraction_total.median()
+        group['distance_to_category_median'] = (group.k95_fraction_total - median).abs()
+        chosen.append(str(group.sort_values(['distance_to_category_median', 'sample_id']).iloc[0].sample_id))
+    if len(chosen) < 3:
+        remaining = available[~available.sample_id.astype(str).isin(chosen)].sort_values(['k95_fraction_total', 'sample_id'])
+        chosen.extend(remaining.sample_id.astype(str).head(3 - len(chosen)).tolist())
+    return chosen[:3]
+
+HIER_VALIDATION_AUDIT_IDS = choose_validation_audit_examples(
+    hierarchical_saturation_points,
+    HIER_VALIDATION_EXAMPLE_IDS,
+) if not hierarchical_saturation_points.empty else []
+print('Casos selecionados para auditoria:', HIER_VALIDATION_AUDIT_IDS)
+"""),
+    code("""def validation_message_audit_table(sample_id):
+    case = hierarchical_messages[
+        (hierarchical_messages.split.eq('validation')) &
+        (hierarchical_messages.seed.eq(42)) &
+        (hierarchical_messages.sample_id.astype(str).eq(str(sample_id)))
+    ].copy()
+    point = hierarchical_saturation_points[
+        (hierarchical_saturation_points.split.eq('validation')) &
+        (hierarchical_saturation_points.sample_id.astype(str).eq(str(sample_id)))
+    ].iloc[0]
+    case['rank_absolute'] = case.abs_delta_logit.rank(method='first', ascending=False).astype(int)
+    supporting = case.class_support_delta.gt(1e-4)
+    case['rank_decision'] = pd.Series(pd.NA, index=case.index, dtype='Int64')
+    case.loc[supporting, 'rank_decision'] = case.loc[supporting, 'class_support_delta'].rank(method='first', ascending=False).astype(int)
+    case['selecionada_ate_k95'] = case.rank_decision.notna() & case.rank_decision.le(int(point.k95))
+    case['papel_na_decisao'] = np.where(
+        case.class_support_delta.gt(1e-4), 'sustenta decisão',
+        np.where(case.class_support_delta.lt(-1e-4), 'contraria decisão', 'neutra'),
+    )
+    return case.sort_values('model_index')[['model_index', 'speaker', 'rank_decision', 'rank_absolute', 'selecionada_ate_k95', 'papel_na_decisao', 'class_support_delta', 'delta_logit', 'text']], point
+
+def style_validation_audit(frame):
+    def row_style(row):
+        if bool(row.selecionada_ate_k95):
+            return ['background-color: #fee2e2'] * len(row)
+        if row.papel_na_decisao == 'contraria decisão':
+            return ['background-color: #dbeafe'] * len(row)
+        return [''] * len(row)
+    return (
+        frame.style.apply(row_style, axis=1)
+        .format({'class_support_delta': '{:.4f}', 'delta_logit': '{:.4f}'})
+        .set_properties(subset=['text'], **{'white-space': 'pre-wrap', 'text-align': 'left', 'max-width': '720px'})
+    )
+
+for audit_number, sample_id in enumerate(HIER_VALIDATION_AUDIT_IDS, start=1):
+    table, point = validation_message_audit_table(sample_id)
+    prediction = 'Scam' if int(point.predicted_label) else 'Ham'
+    metadata = pd.DataFrame([{
+        'caso': audit_number,
+        'sample_id': sample_id,
+        'categoria': point.prediction_category,
+        'classe_prevista': prediction,
+        'total_mensagens': int(point.total_messages),
+        'k95': int(point.k95),
+        'k95_percentual_conversa': 100 * float(point.k95_fraction_total),
+        'comprehensiveness_logit_k95': float(point.comprehensiveness_logit_at_k95),
+        'sufficiency_distance_logit_k95': float(point.sufficiency_distance_logit_at_k95),
+    }])
+    print(f'VALIDATION — CASO {audit_number} — {point.prediction_category} — {sample_id}')
+    display(metadata.style.format({'k95_percentual_conversa': '{:.1f}%', 'comprehensiveness_logit_k95': '{:.4f}', 'sufficiency_distance_logit_k95': '{:.4f}'}))
+    with pd.option_context('display.max_rows', None, 'display.max_colwidth', None):
+        display(style_validation_audit(table))
+
+    ranked = table[table.selecionada_ate_k95].sort_values('rank_decision', ascending=False)
+    case_curve = hierarchical_validation_saturation[
+        (hierarchical_validation_saturation.sample_id.astype(str).eq(str(sample_id))) &
+        hierarchical_validation_saturation.ranking_policy.eq('decision_supporting')
+    ].sort_values('top_k')
+    fig, axes = plt.subplots(1, 2, figsize=(17, max(4.5, .38 * max(len(ranked), 8))))
+    axes[0].barh(
+        ranked.apply(lambda row: f\"#{int(row.rank_decision)} · msg {int(row.model_index)} · {str(row.text)[:90]}\", axis=1),
+        ranked.class_support_delta,
+        color='#dc2626' if prediction == 'Scam' else '#2563eb',
+    )
+    axes[0].set_title(f'Mensagens selecionadas até k95={int(point.k95)}'); axes[0].set_xlabel('Suporte individual alinhado no logit')
+    axes[1].plot(case_curve.top_k, case_curve.comprehensiveness_logit_aligned, marker='o', label='Comprehensiveness logit')
+    axes[1].plot(case_curve.top_k, case_curve.sufficiency_distance_logit, marker='s', label='Sufficiency distance logit')
+    axes[1].axvline(int(point.k95), color='black', ls='--', label='k95')
+    axes[1].set(title=f'Curvas desta conversa ({int(point.total_messages)} mensagens)', xlabel='Quantidade acumulada de mensagens', ylabel='Magnitude no logit')
+    axes[1].grid(alpha=.25); axes[1].legend()
+    plt.tight_layout(); plt.show()
 """),
     markdown("### 4–5. Distribuições globais por split e Top-k"),
     code("""if not hierarchical_metrics.empty:
