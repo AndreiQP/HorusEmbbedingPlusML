@@ -7,7 +7,6 @@ somente esse texto e mantém os demais vetores da conversa inalterados.
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import importlib.metadata
 import json
@@ -28,7 +27,12 @@ BGE_MODEL_NAME = "BAAI/bge-m3"
 DEFAULT_EFFECT_EPSILON = 1e-4
 DEFAULT_REPRODUCTION_ATOL = 1e-5
 DEFAULT_REPRODUCTION_RTOL = 1e-4
-DEFAULT_MIN_MESSAGES = 7
+RANKING_ABSOLUTE_INFLUENCE = "absolute_influence"
+RANKING_DECISION_SUPPORTING = "decision_supporting"
+RANKING_POLICIES = frozenset({
+    RANKING_ABSOLUTE_INFLUENCE,
+    RANKING_DECISION_SUPPORTING,
+})
 TURN_MARKER_RE = re.compile(r"(?<!\S)(?P<speaker>Innocent|Suspect):")
 WORD_RE = re.compile(r"\S+")
 
@@ -93,6 +97,44 @@ class PreparedPerturbations:
     source_message_ranking: list[dict[str, Any]]
     source_top_messages: list[dict[str, Any]]
     embedding_source: str
+    ranking_policy: str = RANKING_ABSOLUTE_INFLUENCE
+    candidate_message_indices: tuple[int, ...] = ()
+
+
+def class_support_delta(delta_logit: float, predicted_label: int) -> float:
+    """Converte impacto no logit Scam em suporte à classe prevista."""
+    return float(delta_logit) if int(predicted_label) == 1 else -float(delta_logit)
+
+
+def select_message_evidence(
+    rows: Sequence[dict[str, Any]],
+    *,
+    predicted_label: int,
+    top_messages: int,
+    ranking_policy: str,
+    effect_epsilon: float = DEFAULT_EFFECT_EPSILON,
+) -> list[dict[str, Any]]:
+    """Seleciona mensagens por influência absoluta ou suporte à decisão."""
+    if ranking_policy not in RANKING_POLICIES:
+        raise ValueError(f"ranking_policy inválida: {ranking_policy}")
+    enriched = []
+    for source in rows:
+        row = dict(source)
+        support = class_support_delta(row["delta_logit"], predicted_label)
+        row["class_support_delta"] = support
+        row["supported_class"] = "scam" if predicted_label == 1 else "ham"
+        row["ranking_policy"] = ranking_policy
+        enriched.append(row)
+    if ranking_policy == RANKING_DECISION_SUPPORTING:
+        enriched = [row for row in enriched if row["class_support_delta"] > effect_epsilon]
+        enriched.sort(key=lambda row: (
+            -float(row["class_support_delta"]),
+            -float(row.get("abs_delta_probability", 0.0)),
+            int(row["original_index"]),
+        ))
+    else:
+        enriched.sort(key=_effect_sort_key)
+    return enriched[:min(top_messages, len(enriched))]
 
 
 def parse_conversation(text: str, max_turns: int = 100) -> list[ConversationTurn]:
@@ -438,6 +480,7 @@ class HierarchicalPerturbationExplainer:
         original: np.ndarray,
         neutral_vectors: np.ndarray,
         top_messages: int,
+        ranking_policy: str = RANKING_ABSOLUTE_INFLUENCE,
     ) -> tuple[float, float, list[dict[str, Any]], list[dict[str, Any]]]:
         baseline_logits, baseline_probabilities = self._infer_arrays(original[None, :, :])
         baseline_logit = float(baseline_logits[0])
@@ -471,8 +514,19 @@ class HierarchicalPerturbationExplainer:
                     int(float(changed_probability) >= 0.5) != predicted_label
                 ),
             })
+        for row in message_rows:
+            row["class_support_delta"] = class_support_delta(
+                row["delta_logit"], predicted_label,
+            )
+            row["supported_class"] = "scam" if predicted_label == 1 else "ham"
         message_rows.sort(key=_effect_sort_key)
-        selected = message_rows[:min(top_messages, len(message_rows))]
+        selected = select_message_evidence(
+            message_rows,
+            predicted_label=predicted_label,
+            top_messages=top_messages,
+            ranking_policy=ranking_policy,
+            effect_epsilon=self.effect_epsilon,
+        )
         return baseline_logit, baseline_probability, message_rows, selected
 
     def prepare_perturbations(
@@ -483,6 +537,8 @@ class HierarchicalPerturbationExplainer:
         max_ngram: int = 5,
         original_embeddings: np.ndarray | None = None,
         neutral_by_speaker: dict[str, np.ndarray] | None = None,
+        ranking_policy: str = RANKING_ABSOLUTE_INFLUENCE,
+        include_absolute_candidates: bool = False,
     ) -> PreparedPerturbations:
         """Codifica uma vez os candidatos definidos pelo Transformer canônico."""
         turns = parse_conversation(conversation, max_turns=self.max_turns)
@@ -493,6 +549,8 @@ class HierarchicalPerturbationExplainer:
             max_ngram=max_ngram,
             original_embeddings=original_embeddings,
             neutral_by_speaker=neutral_by_speaker,
+            ranking_policy=ranking_policy,
+            include_absolute_candidates=include_absolute_candidates,
         )
 
     def prepare_turns(
@@ -504,6 +562,8 @@ class HierarchicalPerturbationExplainer:
         max_ngram: int = 5,
         original_embeddings: np.ndarray | None = None,
         neutral_by_speaker: dict[str, np.ndarray] | None = None,
+        ranking_policy: str = RANKING_ABSOLUTE_INFLUENCE,
+        include_absolute_candidates: bool = False,
     ) -> PreparedPerturbations:
         """Prepara perturbações para turnos já estruturados e alinhados.
 
@@ -540,9 +600,26 @@ class HierarchicalPerturbationExplainer:
                 f"Baselines neutros incompatíveis: {neutral_vectors.shape} != {original.shape}"
             )
         baseline_logit, baseline_probability, message_rows, selected_messages = (
-            self._score_macro(turns, original, neutral_vectors, top_messages)
+            self._score_macro(
+                turns, original, neutral_vectors, top_messages,
+                ranking_policy=ranking_policy,
+            )
         )
-        selected_indices = {int(row["model_index"]) for row in selected_messages}
+        candidate_messages = list(selected_messages)
+        if include_absolute_candidates and ranking_policy == RANKING_DECISION_SUPPORTING:
+            absolute_messages = select_message_evidence(
+                message_rows,
+                predicted_label=int(baseline_probability >= 0.5),
+                top_messages=top_messages,
+                ranking_policy=RANKING_ABSOLUTE_INFLUENCE,
+                effect_epsilon=self.effect_epsilon,
+            )
+            by_index = {
+                int(row["model_index"]): row
+                for row in [*candidate_messages, *absolute_messages]
+            }
+            candidate_messages = list(by_index.values())
+        selected_indices = {int(row["model_index"]) for row in candidate_messages}
         candidates: list[dict[str, Any]] = []
         for turn in turns:
             if turn.model_index in selected_indices:
@@ -562,6 +639,8 @@ class HierarchicalPerturbationExplainer:
             source_message_ranking=message_rows,
             source_top_messages=selected_messages,
             embedding_source=embedding_source,
+            ranking_policy=ranking_policy,
+            candidate_message_indices=tuple(sorted(selected_indices)),
         )
 
     def audit_cached_embeddings(
@@ -610,6 +689,7 @@ class HierarchicalPerturbationExplainer:
                     original,
                     prepared.neutral_vectors,
                     top_messages,
+                    ranking_policy=prepared.ranking_policy,
                 )
             )
         predicted_label = int(baseline_probability >= 0.5)
@@ -681,6 +761,9 @@ class HierarchicalPerturbationExplainer:
                 "delta_logit_per_word": delta_logit / int(candidate["ngram_size"]),
                 "direction": _direction(delta_logit, self.effect_epsilon),
                 "prediction_changed": int(float(changed_probability) >= 0.5) != predicted_label,
+                "class_support_delta": class_support_delta(delta_logit, predicted_label),
+                "supported_class": "scam" if predicted_label == 1 else "ham",
+                "ranking_policy": prepared.ranking_policy,
             })
         span_rows.sort(key=_effect_sort_key)
 
@@ -694,7 +777,18 @@ class HierarchicalPerturbationExplainer:
                 row for row in span_rows
                 if int(row["model_index"]) == model_index
             ]
-            rows.sort(key=_effect_sort_key)
+            if prepared.ranking_policy == RANKING_DECISION_SUPPORTING:
+                rows = [
+                    row for row in rows
+                    if float(row["class_support_delta"]) > self.effect_epsilon
+                ]
+                rows.sort(key=lambda row: (
+                    -float(row["class_support_delta"]),
+                    int(row["ngram_size"]),
+                    int(row["start_char"]),
+                ))
+            else:
+                rows.sort(key=_effect_sort_key)
             if rows:
                 strongest_by_message.append(rows[0])
             for rank, row in enumerate(rows[:top_spans_per_message], start=1):
@@ -731,6 +825,8 @@ class HierarchicalPerturbationExplainer:
             "split": split,
             "analysis_scope": analysis_scope,
             "candidate_source_seed": prepared.candidate_source_seed,
+            "ranking_policy": prepared.ranking_policy,
+            "candidate_message_indices": list(prepared.candidate_message_indices),
         }
         metadata = {
             **analysis_config,
@@ -748,6 +844,7 @@ class HierarchicalPerturbationExplainer:
             "prediction_category": category,
             "analysis_scope": analysis_scope,
             "candidate_source_seed": prepared.candidate_source_seed,
+            "ranking_policy": prepared.ranking_policy,
             "embedding_source": prepared.embedding_source,
             "messages_considered": len(prepared.turns),
             "messages_discarded_by_window": max(
@@ -801,6 +898,7 @@ class HierarchicalPerturbationExplainer:
         sample_id: str | None = None,
         label: int | None = None,
         split: str | None = None,
+        ranking_policy: str = RANKING_ABSOLUTE_INFLUENCE,
     ) -> HierarchicalExplanation:
         """Explica texto novo ou usa embeddings originais fornecidos pelo cache."""
         prepared = self.prepare_perturbations(
@@ -808,6 +906,7 @@ class HierarchicalPerturbationExplainer:
             top_messages=top_messages,
             max_ngram=max_ngram,
             original_embeddings=original_embeddings,
+            ranking_policy=ranking_policy,
         )
         reproduction = None
         if expected_embeddings is not None:
@@ -898,6 +997,13 @@ class HierarchicalPerturbationExplainer:
                     "sufficient_logit": float(sufficient_logit),
                     "sufficient_probability": float(sufficient_probability),
                     "sufficiency_gap": original_class_score - sufficient_class_score,
+                    "removal_prediction_changed": (
+                        int(float(removed_probability) >= 0.5) != predicted_label
+                    ),
+                    "sufficiency_prediction_changed": (
+                        int(float(sufficient_probability) >= 0.5) != predicted_label
+                    ),
+                    "selected_message_count": rank,
                     "supported_class": "scam" if predicted_label == 1 else "ham",
                 })
 
@@ -915,9 +1021,13 @@ class HierarchicalPerturbationExplainer:
         explanation.fidelity = [
             row for row in explanation.fidelity if row.get("level") != "span"
         ]
+        selected_message_indices = {
+            int(row["model_index"]) for row in explanation.top_messages
+        }
         strongest = [
             row for row in explanation.span_ranking
             if int(row.get("rank_within_message", 0)) == 1
+            and int(row["model_index"]) in selected_message_indices
         ]
         if not strongest:
             return
@@ -1252,296 +1362,6 @@ def explain_cached_dataset_sample(
     return explanations
 
 
-def _select_samples_by_prediction_category(
-    sample_ids: Sequence[str],
-    labels: Sequence[int],
-    predictions: Sequence[int],
-    samples_per_category: int,
-) -> dict[str, list[str]]:
-    """Seleciona casos TP/TN/FP/FN de forma determinística e sem usar confiança."""
-    if samples_per_category < 1:
-        raise ValueError("samples_per_category deve ser >= 1")
-    ids = np.asarray(sample_ids).astype(str)
-    y_true = np.asarray(labels).astype(int)
-    y_pred = np.asarray(predictions).astype(int)
-    if not (len(ids) == len(y_true) == len(y_pred)):
-        raise ValueError("IDs, labels e predições devem estar alinhados")
-    masks = {
-        "TP": (y_true == 1) & (y_pred == 1),
-        "TN": (y_true == 0) & (y_pred == 0),
-        "FP": (y_true == 0) & (y_pred == 1),
-        "FN": (y_true == 1) & (y_pred == 0),
-    }
-    selected: dict[str, list[str]] = {}
-    for category, mask in masks.items():
-        candidates = ids[mask].tolist()
-        candidates.sort(key=lambda value: hashlib.sha256(value.encode("utf-8")).hexdigest())
-        selected[category] = candidates[:samples_per_category]
-    return selected
-
-
-def _select_stability_subset(
-    selected_by_category: dict[str, Sequence[str]],
-    samples_per_category: int,
-) -> set[str]:
-    """Toma prefixos da seleção determinística principal em cada categoria."""
-    if samples_per_category < 0:
-        raise ValueError("samples_per_category deve ser >= 0")
-    return {
-        str(sample_id)
-        for category in ("TP", "TN", "FP", "FN")
-        for sample_id in selected_by_category.get(category, ())[:samples_per_category]
-    }
-
-
-def run_cached_dataset_study(
-    *,
-    split: str = "test_internal",
-    primary_seed: int = 42,
-    stability_seeds: Sequence[int] = (42, 52, 62),
-    samples_per_category: int = 5,
-    stability_samples_per_category: int = 2,
-    min_messages: int = DEFAULT_MIN_MESSAGES,
-    sample_ids: Sequence[str] | None = None,
-    top_messages: int = 6,
-    max_ngram: int = 5,
-    top_spans_per_message: int = 20,
-    device=None,
-    output_dir: str | Path | None = None,
-    checkpoint_root: str | Path | None = None,
-) -> list[HierarchicalExplanation]:
-    """Executa seed canônica completa e estabilidade reduzida sem repetir BGE.
-
-    Apenas conversas com pelo menos ``min_messages`` turnos após o corte dos
-    últimos 100 são elegíveis. O default 7 implementa o critério de "mais de
-    seis mensagens", garantindo que a etapa macro possa exibir seis turnos.
-    """
-    from .explainability import _dataset
-
-    if split not in {"test_internal", "validation"}:
-        raise ValueError("split deve ser test_internal ou validation")
-    if samples_per_category < 1:
-        raise ValueError("samples_per_category deve ser >= 1")
-    if stability_samples_per_category < 0:
-        raise ValueError("stability_samples_per_category deve ser >= 0")
-    if stability_samples_per_category > samples_per_category:
-        raise ValueError(
-            "stability_samples_per_category não pode exceder samples_per_category"
-        )
-    if min_messages < 1:
-        raise ValueError("min_messages deve ser >= 1")
-    sequences, labels, ids, text_by_id = _dataset("bge", split)
-    ids = np.asarray(ids).astype(str)
-    labels = np.asarray(labels).astype(int)
-    primary_seed = int(primary_seed)
-    stability_seeds = tuple(dict.fromkeys(int(seed) for seed in stability_seeds))
-    required_seeds = [primary_seed]
-    if stability_samples_per_category > 0:
-        required_seeds.extend(seed for seed in stability_seeds if seed != primary_seed)
-    required_seeds = list(dict.fromkeys(required_seeds))
-
-    models: dict[int, tuple[Any, dict[str, Any]]] = {}
-    bundles: dict[int, dict[str, np.ndarray]] = {}
-    for seed in required_seeds:
-        model, metadata = load_bge_finalist_model(
-            seed=seed, device=device, checkpoint_root=checkpoint_root,
-        )
-        bundle = ModelCache.load_prediction_bundle("transformer", metadata["run_id"], split)
-        bundle_ids = np.asarray(bundle["sample_ids"]).astype(str)
-        if not np.array_equal(bundle_ids, ids):
-            raise ReproductionError(
-                f"IDs do dataset e das predições estão desalinhados para seed={seed}"
-            )
-        if not np.array_equal(np.asarray(bundle["y_true"]).astype(int), labels):
-            raise ReproductionError(
-                f"Labels do dataset e das predições estão desalinhados para seed={seed}"
-            )
-        models[seed] = (model, metadata)
-        bundles[seed] = bundle
-
-    message_counts = np.asarray([
-        len(parse_conversation(text_by_id[sample_id]))
-        for sample_id in ids
-    ])
-    eligible_mask = message_counts >= min_messages
-    predictions = np.asarray(bundles[primary_seed]["y_pred"]).astype(int)
-
-    if sample_ids is None:
-        selected_by_category = _select_samples_by_prediction_category(
-            ids[eligible_mask],
-            labels[eligible_mask],
-            predictions[eligible_mask],
-            samples_per_category,
-        )
-        category_masks = {
-            "TP": (labels == 1) & (predictions == 1),
-            "TN": (labels == 0) & (predictions == 0),
-            "FP": (labels == 0) & (predictions == 1),
-            "FN": (labels == 1) & (predictions == 0),
-        }
-        available = {
-            category: int(np.sum(mask & eligible_mask))
-            for category, mask in category_masks.items()
-        }
-        reduced_categories = {
-            category: count
-            for category, count in available.items()
-            if count < samples_per_category
-        }
-        if reduced_categories:
-            print(
-                "Amostragem reduzida por disponibilidade após aplicar "
-                f"min_messages={min_messages}: solicitadas={samples_per_category}; "
-                f"usando todas as elegíveis em {reduced_categories}"
-            )
-    else:
-        selected_ids = [str(value) for value in sample_ids]
-        missing = sorted(set(selected_ids) - set(ids.tolist()))
-        if missing:
-            raise ValueError(f"sample_ids ausentes no split {split}: {missing[:10]}")
-        index_by_id = {sample_id: index for index, sample_id in enumerate(ids.tolist())}
-        too_short = [
-            sample_id for sample_id in selected_ids
-            if message_counts[index_by_id[sample_id]] < min_messages
-        ]
-        if too_short:
-            raise ValueError(
-                f"sample_ids com menos de {min_messages} mensagens: {too_short[:10]}"
-            )
-        selected_by_category = {category: [] for category in ("TP", "TN", "FP", "FN")}
-        for sample_id in selected_ids:
-            index = index_by_id[sample_id]
-            category = {
-                (1, 1): "TP", (0, 0): "TN", (0, 1): "FP", (1, 0): "FN",
-            }[(int(labels[index]), int(predictions[index]))]
-            selected_by_category[category].append(sample_id)
-        for values in selected_by_category.values():
-            values.sort(key=lambda value: hashlib.sha256(value.encode("utf-8")).hexdigest())
-
-    selected_ids = [
-        sample_id
-        for category in ("TP", "TN", "FP", "FN")
-        for sample_id in selected_by_category[category]
-    ]
-    if not selected_ids:
-        raise ValueError("Nenhuma amostra selecionada para o estudo")
-    stability_ids = _select_stability_subset(
-        selected_by_category, stability_samples_per_category,
-    )
-
-    index_by_id = {sample_id: index for index, sample_id in enumerate(ids.tolist())}
-    encoder = load_bge_encoder(device=device)
-    explainers = {
-        seed: HierarchicalPerturbationExplainer(
-            model,
-            encoder,
-            device=device,
-            seed=seed,
-            model_metadata=metadata,
-        )
-        for seed, (model, metadata) in models.items()
-    }
-    primary = explainers[primary_seed]
-    audit_sample_id = selected_ids[0]
-    audit_index = index_by_id[audit_sample_id]
-    bge_audit = primary.audit_cached_embeddings(
-        text_by_id[audit_sample_id],
-        np.asarray(sequences[audit_index], dtype=np.float32)[-100:],
-    )
-    bge_audit["sample_id"] = audit_sample_id
-    neutral_embeddings = primary._encode(["Innocent:", "Suspect:"])
-    neutral_by_speaker = dict(zip(("Innocent", "Suspect"), neutral_embeddings))
-    explanations: list[HierarchicalExplanation] = []
-    for sample_id in selected_ids:
-        index = index_by_id[sample_id]
-        original_embeddings = np.asarray(sequences[index], dtype=np.float32)[-100:]
-        prepared = primary.prepare_perturbations(
-            text_by_id[sample_id],
-            top_messages=top_messages,
-            max_ngram=max_ngram,
-            original_embeddings=original_embeddings,
-            neutral_by_speaker=neutral_by_speaker,
-        )
-        sample_seeds = [primary_seed]
-        if sample_id in stability_ids:
-            sample_seeds.extend(
-                seed for seed in required_seeds if seed != primary_seed
-            )
-        sample_explanations: list[HierarchicalExplanation] = []
-        for seed in sample_seeds:
-            expected_probability = float(np.asarray(bundles[seed]["y_prob"])[index])
-            explanation = explainers[seed].explain_prepared(
-                prepared,
-                top_messages=top_messages,
-                top_spans_per_message=top_spans_per_message,
-                sample_id=sample_id,
-                label=int(labels[index]),
-                split=split,
-                analysis_scope="primary" if seed == primary_seed else "stability",
-                expected_probability=expected_probability,
-                defer_span_fidelity=True,
-            )
-            explanation.metadata["bge_audit"] = bge_audit
-            sample_explanations.append(explanation)
-
-        sufficient_texts = list(dict.fromkeys(
-            f"{row['speaker']}: {row['span_text']}"
-            for explanation in sample_explanations
-            for row in explanation.span_ranking
-            if int(row.get("rank_within_message", 0)) == 1
-        ))
-        sufficient_lookup = dict(zip(
-            sufficient_texts,
-            primary._encode(sufficient_texts),
-        ))
-        for explanation in sample_explanations:
-            explainers[int(explanation.metadata["seed"])].append_span_fidelity(
-                explanation,
-                prepared,
-                sufficient_lookup,
-            )
-        explanations.extend(sample_explanations)
-    save_hierarchical_explanations(
-        explanations,
-        output_dir=output_dir or (
-            TRANSFORMER_STUDIES / "hierarchical_explainability" / split
-        ),
-        manifest_metadata={
-            "primary_seed": primary_seed,
-            "stability_seeds": (
-                required_seeds if stability_samples_per_category > 0 else []
-            ),
-            "samples_per_category": samples_per_category,
-            "stability_samples_per_category": stability_samples_per_category,
-            "min_messages": min_messages,
-            "eligible_samples": int(eligible_mask.sum()),
-            "eligible_category_counts": {
-                category: int(np.sum(mask & eligible_mask))
-                for category, mask in {
-                    "TP": (labels == 1) & (predictions == 1),
-                    "TN": (labels == 0) & (predictions == 0),
-                    "FP": (labels == 0) & (predictions == 1),
-                    "FN": (labels == 1) & (predictions == 0),
-                }.items()
-            },
-            "primary_category_counts": {
-                category: len(selected_by_category[category])
-                for category in ("TP", "TN", "FP", "FN")
-            },
-            "stability_category_counts": {
-                category: len(selected_by_category[category][
-                    :stability_samples_per_category
-                ])
-                for category in ("TP", "TN", "FP", "FN")
-            },
-            "primary_sample_ids": selected_ids,
-            "stability_sample_ids": sorted(stability_ids),
-            "bge_audit": bge_audit,
-        },
-    )
-    return explanations
-
-
 def _flatten_with_metadata(
     explanation: HierarchicalExplanation,
     rows: Iterable[dict[str, Any]],
@@ -1582,6 +1402,7 @@ def _stability_rows(explanations: Sequence[HierarchicalExplanation]) -> list[dic
         ranked_span_keys = {
             (int(row["model_index"]), int(row["start_char"]), int(row["end_char"]))
             for row in explanation.span_ranking
+            if int(row.get("rank_within_message", 0)) == 1
         }
         for row in _flatten_with_metadata(explanation, explanation._all_span_effects):
             key = (int(row["model_index"]), int(row["start_char"]), int(row["end_char"]))
@@ -1710,7 +1531,7 @@ def save_hierarchical_explanations(
     if not explanations:
         raise ValueError("Nenhuma explicação para salvar")
     destination = Path(output_dir) if output_dir else (
-        TRANSFORMER_STUDIES / "hierarchical_explainability"
+        TRANSFORMER_STUDIES / "hierarchical_explainability" / "manual"
     )
     message_rows: list[dict[str, Any]] = []
     span_rows: list[dict[str, Any]] = []
@@ -1738,7 +1559,7 @@ def save_hierarchical_explanations(
         ])
     atomic_csv(destination / "stability.csv", stability_frame)
     manifest = {
-        "analysis": "hierarchical_perturbation_v2",
+        "analysis": "hierarchical_perturbation",
         "analysis_hash": stable_hash([
             explanation.metadata.get("analysis_hash") for explanation in explanations
         ]),
@@ -1775,108 +1596,3 @@ def save_hierarchical_explanations(
     manifest.update(manifest_metadata or {})
     atomic_json(destination / "manifest.json", manifest)
     return destination
-
-
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Explicação hierárquica do Transformer BGE por oclusão textual"
-    )
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--conversation")
-    source.add_argument("--conversation-file", type=Path)
-    source.add_argument("--sample-id")
-    source.add_argument("--study", action="store_true")
-    parser.add_argument("--split", choices=["test_internal", "validation"], default="test_internal")
-    parser.add_argument("--seed", type=int, action="append")
-    parser.add_argument("--top-messages", type=int, default=6)
-    parser.add_argument("--max-ngram", type=int, default=5)
-    parser.add_argument("--top-spans-per-message", type=int, default=20)
-    parser.add_argument("--output-dir", type=Path)
-    parser.add_argument("--samples-per-category", type=int, default=5)
-    parser.add_argument("--min-messages", type=int, default=DEFAULT_MIN_MESSAGES)
-    parser.add_argument("--primary-seed", type=int, default=42)
-    parser.add_argument("--stability-seed", type=int, action="append")
-    parser.add_argument("--stability-samples-per-category", type=int, default=2)
-    parser.add_argument("--skip-stability", action="store_true")
-    parser.add_argument("--checkpoint-root", type=Path)
-    return parser
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
-    seeds = tuple(args.seed or [42])
-    output_root = TRANSFORMER_STUDIES / "hierarchical_explainability"
-    output_dir = args.output_dir or (
-        output_root / args.split
-        if args.study or args.sample_id is not None
-        else output_root / "manual"
-    )
-    if args.study:
-        explanations = run_cached_dataset_study(
-            split=args.split,
-            primary_seed=args.primary_seed,
-            stability_seeds=tuple(args.stability_seed or (42, 52, 62)),
-            samples_per_category=args.samples_per_category,
-            min_messages=args.min_messages,
-            stability_samples_per_category=(
-                0 if args.skip_stability else args.stability_samples_per_category
-            ),
-            top_messages=args.top_messages,
-            max_ngram=args.max_ngram,
-            top_spans_per_message=args.top_spans_per_message,
-            output_dir=output_dir,
-            checkpoint_root=args.checkpoint_root,
-        )
-    elif args.sample_id is not None:
-        explanations = explain_cached_dataset_sample(
-            args.sample_id,
-            split=args.split,
-            seeds=seeds,
-            top_messages=args.top_messages,
-            max_ngram=args.max_ngram,
-            top_spans_per_message=args.top_spans_per_message,
-            output_dir=output_dir,
-            checkpoint_root=args.checkpoint_root,
-        )
-    else:
-        conversation = (
-            args.conversation_file.read_text(encoding="utf-8")
-            if args.conversation_file is not None else args.conversation
-        )
-        encoder = load_bge_encoder()
-        explanations = [
-            explain_conversation(
-                conversation,
-                seed=seed,
-                top_messages=args.top_messages,
-                max_ngram=args.max_ngram,
-                top_spans_per_message=args.top_spans_per_message,
-                encoder=encoder,
-                checkpoint_root=args.checkpoint_root,
-            )
-            for seed in seeds
-        ]
-        save_hierarchical_explanations(explanations, output_dir=output_dir)
-    summary = {
-        "artifacts_dir": str(output_dir),
-        "runs": [
-            {
-                "seed": explanation.metadata["seed"],
-                "analysis_scope": explanation.metadata.get("analysis_scope"),
-                "candidate_source_seed": explanation.metadata.get("candidate_source_seed"),
-                "baseline": explanation.baseline,
-                "top_message_indices": [
-                    row["original_index"] for row in explanation.top_messages
-                ],
-                "strongest_scam_span": explanation.strongest_scam_span,
-                "strongest_ham_span": explanation.strongest_ham_span,
-            }
-            for explanation in explanations
-        ],
-    }
-    print(json.dumps(summary, indent=2, ensure_ascii=False, default=str))
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

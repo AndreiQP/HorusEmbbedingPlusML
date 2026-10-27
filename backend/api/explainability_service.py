@@ -363,6 +363,7 @@ class BGERuntime:
                 top_messages=TOP_MESSAGES,
                 max_ngram=MAX_NGRAM,
                 original_embeddings=original_embeddings,
+                ranking_policy="decision_supporting",
             )
             explanation = self.explainer.explain_prepared(
                 prepared,
@@ -486,12 +487,21 @@ def format_online_explanation(
                 "direction": str(message_row["direction"]),
                 "deltaLogit": float(message_row["delta_logit"]),
                 "relativeImpact": _relative(float(message_row["delta_logit"]), message_max),
+                "classSupportDelta": float(message_row.get(
+                    "class_support_delta", message_row["delta_logit"],
+                )),
+                "supportedClass": str(message_row.get(
+                    "supported_class",
+                    "scam" if explanation.baseline["predicted_label"] == 1 else "ham",
+                )),
+                "rankingPolicy": "decision_supporting",
             },
             "span": span_payload,
             "dangerousSpan": dangerous_span_payload,
         })
     return {
         "device": device,
+        "rankingPolicy": "decision_supporting",
         "baseline": {
             "logit": float(explanation.baseline["logit"]),
             "probabilityScam": float(explanation.baseline["probability_scam"]),

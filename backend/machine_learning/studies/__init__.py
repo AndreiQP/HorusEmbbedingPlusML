@@ -22,8 +22,12 @@ from .hierarchical_perturbation import (
     explain_cached_dataset_sample,
     explain_conversation,
     resolve_bge_finalist_checkpoint,
-    run_cached_dataset_study,
     save_hierarchical_explanations,
+)
+from .hierarchical_global import (
+    aggregate_global_results,
+    build_global_inventory,
+    run_global_shard,
 )
 
 __all__ = [
@@ -35,6 +39,6 @@ __all__ = [
     "HierarchicalExplanation", "HierarchicalPerturbationExplainer", "ReproductionError",
     "explain_conversation", "explain_cached_dataset_sample",
     "resolve_bge_finalist_checkpoint",
-    "run_cached_dataset_study",
     "save_hierarchical_explanations",
+    "build_global_inventory", "run_global_shard", "aggregate_global_results",
 ]

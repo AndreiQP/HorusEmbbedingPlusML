@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from .common import TRANSFORMER_STUDIES
+from .common import TRANSFORMER_STUDIES, atomic_json
 from .dataset_size import (
     aggregate_dataset_size_results, run_transformer_dataset_size_study,
     run_unsupervised_dataset_size_study,
@@ -17,8 +17,13 @@ from .hierarchical_perturbation import (
     explain_cached_dataset_sample,
     explain_conversation,
     load_bge_encoder,
-    run_cached_dataset_study,
     save_hierarchical_explanations,
+)
+from .hierarchical_global import (
+    HIERARCHICAL_EXPLAINABILITY_ROOT,
+    aggregate_global_results,
+    build_global_inventory,
+    run_global_shard,
 )
 from .report import build_studies_report
 from .slurm import write_slurm_grids
@@ -55,18 +60,11 @@ def parser() -> argparse.ArgumentParser:
     hierarchical_source.add_argument("--conversation")
     hierarchical_source.add_argument("--conversation-file")
     hierarchical_source.add_argument("--sample-id")
-    hierarchical_source.add_argument("--study", action="store_true")
     hierarchical.add_argument("--split", choices=["test_internal", "validation"], default="test_internal")
     hierarchical.add_argument("--seed", type=int, action="append")
     hierarchical.add_argument("--top-messages", type=int, default=6)
     hierarchical.add_argument("--max-ngram", type=int, default=5)
     hierarchical.add_argument("--top-spans-per-message", type=int, default=20)
-    hierarchical.add_argument("--samples-per-category", type=int, default=5)
-    hierarchical.add_argument("--min-messages", type=int, default=7)
-    hierarchical.add_argument("--primary-seed", type=int, default=42)
-    hierarchical.add_argument("--stability-seed", type=int, action="append")
-    hierarchical.add_argument("--stability-samples-per-category", type=int, default=2)
-    hierarchical.add_argument("--skip-stability", action="store_true")
     hierarchical.add_argument("--output-dir")
     hierarchical.add_argument(
         "--checkpoint-root",
@@ -75,6 +73,21 @@ def parser() -> argparse.ArgumentParser:
             "a pasta transformer ou um ancestral dos runs."
         ),
     )
+    study = sub.add_parser("hierarchical-study")
+    study.add_argument("--action", required=True, choices=["inventory", "shard", "aggregate"])
+    study.add_argument("--split", choices=["test_internal", "validation", "all"], default="all")
+    study.add_argument("--shard-index", type=int)
+    study.add_argument("--shard-count", type=int, default=32)
+    study.add_argument("--primary-seed", type=int, default=42)
+    study.add_argument("--stability-seed", type=int, action="append")
+    study.add_argument("--top-messages", type=int, default=6)
+    study.add_argument("--max-ngram", type=int, default=5)
+    study.add_argument("--top-spans-per-message", type=int, default=20)
+    study.add_argument("--controls-per-span", type=int, default=5)
+    study.add_argument("--output-dir", default=str(HIERARCHICAL_EXPLAINABILITY_ROOT))
+    study.add_argument("--checkpoint-root")
+    study.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    study.add_argument("--no-resume", action="store_true")
     sub.add_parser("aggregate")
     sub.add_parser("report")
     grids = sub.add_parser("make-slurm-grids")
@@ -115,32 +128,14 @@ def main(argv=None) -> int:
 
         seeds = tuple(args.seed or [42])
         output_root = TRANSFORMER_STUDIES / "hierarchical_explainability"
-        output_dir = args.output_dir or str(
-            output_root / args.split
-            if args.study or args.sample_id is not None
-            else output_root / "manual"
-        )
+        output_dir = args.output_dir or str(output_root / "manual")
         common = {
             "top_messages": args.top_messages,
             "max_ngram": args.max_ngram,
             "top_spans_per_message": args.top_spans_per_message,
             "checkpoint_root": args.checkpoint_root,
         }
-        if args.study:
-            stability_count = (
-                0 if args.skip_stability else args.stability_samples_per_category
-            )
-            explanations = run_cached_dataset_study(
-                split=args.split,
-                primary_seed=args.primary_seed,
-                stability_seeds=tuple(args.stability_seed or (42, 52, 62)),
-                samples_per_category=args.samples_per_category,
-                min_messages=args.min_messages,
-                stability_samples_per_category=stability_count,
-                output_dir=output_dir,
-                **common,
-            )
-        elif args.sample_id is not None:
+        if args.sample_id is not None:
             explanations = explain_cached_dataset_sample(
                 args.sample_id,
                 split=args.split,
@@ -179,6 +174,67 @@ def main(argv=None) -> int:
                 for item in explanations
             ],
         }
+    elif args.command == "hierarchical-study":
+        from pathlib import Path
+        import torch
+
+        splits = ("test_internal", "validation") if args.split == "all" else (args.split,)
+        if args.action == "inventory":
+            frame = build_global_inventory(
+                splits=splits,
+                primary_seed=args.primary_seed,
+                output_root=args.output_dir,
+                checkpoint_root=args.checkpoint_root,
+            )
+            result = {
+                "artifacts_dir": str(Path(args.output_dir)),
+                "conversations": frame.groupby("split")["sample_id"].nunique().to_dict(),
+            }
+        elif args.action == "shard":
+            if args.split == "all" or args.shard_index is None:
+                raise ValueError("--action shard exige --split explícito e --shard-index")
+            if args.device == "cuda" and not torch.cuda.is_available():
+                raise RuntimeError("CUDA foi exigida, mas não está disponível")
+            device = (
+                torch.device("cuda") if args.device == "cuda"
+                else torch.device("cpu") if args.device == "cpu"
+                else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            )
+            try:
+                destination = run_global_shard(
+                    split=args.split,
+                    shard_index=args.shard_index,
+                    shard_count=args.shard_count,
+                    primary_seed=args.primary_seed,
+                    seeds=tuple(args.stability_seed or (42, 52, 62)),
+                    top_messages=args.top_messages,
+                    max_ngram=args.max_ngram,
+                    top_spans_per_message=args.top_spans_per_message,
+                    controls_per_span=args.controls_per_span,
+                    device=device,
+                    output_root=args.output_dir,
+                    checkpoint_root=args.checkpoint_root,
+                    resume=not args.no_resume,
+                )
+            except Exception as exc:
+                import traceback
+                failure_dir = (
+                    Path(args.output_dir) / args.split / "shards"
+                    / f"shard-{args.shard_index:05d}"
+                )
+                atomic_json(failure_dir / "failure.json", {
+                    "error_type": type(exc).__name__, "error": str(exc),
+                    "traceback": traceback.format_exc(),
+                })
+                raise
+            result = {"artifacts_dir": str(destination), "device": str(device)}
+        else:
+            destination = aggregate_global_results(
+                output_root=args.output_dir,
+                expected_shards=args.shard_count,
+                splits=splits,
+            )
+            result = {"artifacts_dir": str(destination), "status": "complete"}
     elif args.command == "aggregate":
         result = aggregate_dataset_size_results()
         try:

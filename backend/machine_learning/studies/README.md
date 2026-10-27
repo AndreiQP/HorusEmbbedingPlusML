@@ -55,138 +55,40 @@ ausente. Ele nunca submete `submit_full_pipeline.sh` automaticamente.
 
 ## Explicabilidade hierárquica BGE
 
-O estudo local por perturbação seleciona as seis mensagens com maior impacto
-absoluto no logit e recodifica oclusões de n-grams apenas nessas mensagens. Os
-demais vetores da conversa permanecem congelados. Efeitos positivos apoiam Scam;
-efeitos negativos apoiam Ham.
+O estudo canônico processa todas as conversas de 	est_internal e
+alidation.
+Não existe mais o runner amostral. A seed 42 define as explicações; as seeds 52
+e 62 medem estabilidade sobre as mesmas perturbações BGE.
 
-O classificador usado é o finalista BGE escolhido por
-`internal_val_f1_macro`: 2 heads, 4 camadas, dimensão oculta 256, dropout 0,1,
-batch 16, Adam sem weight decay e learning rate `1e-6`. A seed 42 é a execução
-canônica nas 20 conversas do estudo principal. As seeds 52 e 62 são executadas
-somente em duas conversas de cada categoria para medir estabilidade da explicação
-canônica. Seeds não são escolhidas posteriormente por desempenho no teste ou na
-validação externa.
+Há duas políticas: bsolute_influence, usada para diagnóstico no notebook, e
+decision_supporting, usada pela API e pelas métricas de fidelidade. Conversas
+curtas são mantidas e cada Top-k informa N_k e metric_N_k.
 
-No caminho cacheado, `text_embedded` é a fonte oficial dos vetores originais. O
-texto concatenado é separado apenas para recuperar mensagens e offsets. O BGE
-faz uma auditoria numérica em uma conversa por job e depois codifica somente os
-dois baselines, as perturbações e os textos de sufficiency. Os mesmos embeddings
-perturbados são reutilizados nas três seeds.
+Para explicar manualmente um texto ou uma amostra cacheada:
 
-O estudo cacheado exclui conversas com seis ou menos mensagens: o default
-`--min-messages 7` exige pelo menos sete turnos após o corte dos últimos 100.
-Assim, cada explicação selecionada tem ao menos seis mensagens reais para a
-etapa macro. Cada categoria usa os cinco casos elegíveis solicitados ou, quando
-isso não for possível, todos os casos disponíveis; o job registra a redução no
-log e no manifesto, sem descartar as demais categorias.
+`ash
+python -m machine_learning.studies hierarchical-explain --conversation-file conversa.txt --seed 42
+python -m machine_learning.studies hierarchical-explain --sample-id SAMPLE_ID --split test_internal --seed 42
+`
 
-Para uma conversa nova:
+### Execução completa no cluster
 
-```bash
-cd backend
-python -m machine_learning.studies hierarchical-explain \
-  --conversation-file conversa.txt --seed 42 \
-  --checkpoint-root /caminho/para/experiment_results/transformer \
-  --output-dir experiment_results/transformer/studies/hierarchical_explainability
-```
-
-Sem `--checkpoint-root`, a busca ocorre em
-`backend/experiment_results/transformer`. O loader exige o `run_id` finalista
-registrado em `finalists/bge/summary.json`, mesmo que existam outros
-`model.pth` na árvore.
-
-Para uma amostra cacheada, usando os embeddings persistidos e pontuando as
-mesmas perturbações nos Transformers solicitados:
-
-```bash
-python -m machine_learning.studies hierarchical-explain \
-  --sample-id SAMPLE_ID --split test_internal --seed 42 --seed 52 --seed 62
-```
-
-Para selecionar cinco casos TP/TN/FP/FN na seed 42 e duas conversas de cada
-categoria para estabilidade nas seeds 42/52/62:
-
-```bash
-python -m machine_learning.studies hierarchical-explain \
-  --study --split test_internal --primary-seed 42 \
-  --stability-seed 42 --stability-seed 52 --stability-seed 62 \
-  --samples-per-category 5 --stability-samples-per-category 2 --min-messages 7
-```
-
-Sem `--output-dir`, o split é acrescentado automaticamente ao destino. Assim,
-as duas execuções abaixo produzem, respectivamente,
-`hierarchical_explainability/test_internal/` e
-`hierarchical_explainability/validation/`, sem sobrescrever artefatos:
-
-```bash
-python -m machine_learning.studies hierarchical-explain --study --split test_internal
-python -m machine_learning.studies hierarchical-explain --study --split validation
-```
-
-Para executar somente a explicação principal da seed 42:
-
-```bash
-python -m machine_learning.studies hierarchical-explain \
-  --study --split test_internal --primary-seed 42 \
-  --samples-per-category 5 --skip-stability
-```
-
-### Execução no cluster
-
-O estudo hierárquico tem um job GPU próprio porque recodifica as perturbações
-textuais no BGE-M3. No cluster, a execução completa recomendada é:
-
-```bash
+`ash
 cd /home/andrei.pinto/HorusEmbbedingPlusML
 bash backend/slurm/studies/submit_hierarchical_explainability.sh --dry-run
-bash backend/slurm/studies/submit_hierarchical_explainability.sh \
-  --split test_internal --samples-per-category 5
-```
+bash backend/slurm/studies/submit_hierarchical_explainability.sh --shards 32
+`
 
-Os defaults usam `--primary-seed 42` e
-`--stability-samples-per-category 2`. Para eliminar completamente a etapa de
-estabilidade e exigir apenas o checkpoint 42:
+O submit valida os três checkpoints, cria o inventário em CPU, executa arrays
+GPU para os dois splits e agrega em CPU. Para excluir um nó com falha de ECC:
 
-```bash
-bash backend/slurm/studies/submit_hierarchical_explainability.sh \
-  --split test_internal --skip-stability
-```
+`ash
+bash backend/slurm/studies/submit_hierarchical_explainability.sh --shards 32 --exclude-node dl-01
+`
 
-Se um job falhar com `uncorrectable ECC error`, identifique o nó pelo `sacct` e
-reenvie excluindo-o; por exemplo, para o nó `dl-01`:
-
-```bash
-bash backend/slurm/studies/submit_hierarchical_explainability.sh \
-  --split test_internal --exclude-node dl-01
-```
-
-O job usa o cache local do BGE-M3 em modo offline, pois os nós de compute não
-precisam — e normalmente não conseguem — acessar o Hugging Face Hub.
-
-O job verifica antes da análise o checkpoint da seed 42 e, quando a estabilidade
-está habilitada, também os checkpoints 52 e 62. Ele solicita uma GPU L40S e grava os resultados em
-`backend/experiment_results/transformer/studies/hierarchical_explainability/<split>`.
-Se os pesos estiverem fora da árvore do projeto:
-
-```bash
-bash backend/slurm/studies/submit_hierarchical_explainability.sh \
-  --checkpoint-root /caminho/para/experiment_results/transformer
-```
-
-Monitoramento:
-
-```bash
-squeue -u "$USER"
-tail -f slurm_logs/model_studies/bge_hier_exp_JOBID.out
-```
-
-O notebook `notebooks/judge_decision.ipynb` apenas lê os artefatos produzidos.
-Defina `HIER_SPLIT = 'test_internal'` ou `HIER_SPLIT = 'validation'` para
-visualizar cada distribuição separadamente;
-ele não recodifica textos nem carrega o Transformer.
-
-O protocolo completo está em `HIERARCHICAL_EXPLAINABILITY_PLAN.md`.
-
-Os notebooks `judge_decision.ipynb` e `unsupervised.ipynb` apenas leem esses
-artefatos em suas novas seções de estudo.
+Todos os resultados ficam no único diretório
+ackend/experiment_results/transformer/studies/hierarchical_explainability/.
+O notebook
+otebooks/judge_decision.ipynb lê somente os Parquets dessa
+estrutura. O protocolo completo está em
+HIERARCHICAL_EXPLAINABILITY_PLAN.md.

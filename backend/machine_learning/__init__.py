@@ -19,7 +19,6 @@ from .studies import (
     HierarchicalExplanation, HierarchicalPerturbationExplainer, ReproductionError,
     explain_conversation, explain_cached_dataset_sample,
     resolve_bge_finalist_checkpoint,
-    run_cached_dataset_study,
     save_hierarchical_explanations,
 )
 from .data import (
@@ -114,7 +113,6 @@ __all__ = [
     "HierarchicalExplanation", "HierarchicalPerturbationExplainer", "ReproductionError",
     "explain_conversation", "explain_cached_dataset_sample",
     "resolve_bge_finalist_checkpoint",
-    "run_cached_dataset_study",
     "save_hierarchical_explanations",
     "finalize_unsupervised_pipeline",
     "train_cvdd", "train_date",
