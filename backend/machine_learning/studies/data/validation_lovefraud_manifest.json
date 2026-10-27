@@ -1,0 +1,1184 @@
+{
+  "dataset": "LoveFraud02",
+  "doi": "10.17632/kmhvb4x5d8.1",
+  "version": 1,
+  "expected_conversations": 83,
+  "rows": [
+    {
+      "row_index": 0,
+      "original_sha256": "ef9a1eb149ffc87cfbc907977df33b3d67ceea29ed22c200d693ac3ca3cc9783",
+      "source_file": "PaulLacamera_2.txt",
+      "source_file_id": "8e23c771-a73a-4fc0-8df2-852a5237b3fd",
+      "claimed_name": "PaulLacamera_2",
+      "suspect_markers": [
+        "Gen10"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 4,
+      "original_sha256": "20fca5680ac2bffabe78b795237cccf8138c4aa8cd59a33d0753f9fda7a46dcd",
+      "source_file": "NewtonHaro.txt",
+      "source_file_id": "854ee5d2-85cb-4943-93d0-4bc1f1dff5cb",
+      "claimed_name": "NewtonHaro",
+      "suspect_markers": [
+        "Eng10"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 8,
+      "original_sha256": "59f7f541547106861f26c74cbd67fb682ca11f9582545c4e54428834f87e7f5f",
+      "source_file": "SimonPhilip.txt",
+      "source_file_id": "ee1fc678-6169-4749-b1d2-b44285a7ab44",
+      "claimed_name": "SimonPhilip",
+      "suspect_markers": [
+        "Eng11"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 48,
+      "original_sha256": "0c3146da20afe9011a0d166194c2b03dbf3b4afc49aca787e261a70f07734953",
+      "source_file": "JamesDickinson.txt",
+      "source_file_id": "2b49f81a-bdb4-4590-aed6-ac25e32bfa70",
+      "claimed_name": "JamesDickinson",
+      "suspect_markers": [
+        "Gen05"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 84,
+      "original_sha256": "a6efc7ceeb2c2915911ad267112327e6049b168fa1ac93c5a1100a403f79fea4",
+      "source_file": "PaulLaCamera_5.txt",
+      "source_file_id": "fe673efc-cd59-46f9-a7b9-7d713fd13f5e",
+      "claimed_name": "PaulLaCamera_5",
+      "suspect_markers": [
+        "Gen21"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 90,
+      "original_sha256": "6e6501bd748651316a8e62d49f44b5829b3b65f7718b48450c5428f833c69bb8",
+      "source_file": "EricHill2.txt",
+      "source_file_id": "7ba78e4e-d428-4ee7-b605-ec2f3c24d44a",
+      "claimed_name": "EricHill2",
+      "suspect_markers": [
+        "Gen18"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 108,
+      "original_sha256": "46340bccad86f27df1cf6678a481ac4966b3d1d9b0590d1e76b68404c98c282a",
+      "source_file": "MikeSweney.txt",
+      "source_file_id": "5144753d-da6e-40c2-87ea-ba15ffdc4f01",
+      "claimed_name": "MikeSweney",
+      "suspect_markers": [
+        "Oilrigger13"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 113,
+      "original_sha256": "5a6a73657105ef9467bc2b721ae0c3a254d01632f291dbadafa61e1fe6eac4e9",
+      "source_file": "ToddLazarovski.txt",
+      "source_file_id": "ffb6481b-d7e9-4b6d-b406-a9596060ad33",
+      "claimed_name": "ToddLazarovski",
+      "suspect_markers": [
+        "Gen23"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 115,
+      "original_sha256": "0d6b50bb6db75e64a6b01331f1e6347a50b7bac2c14a47c8c56a81580af5bf74",
+      "source_file": "ChristJackson.txt",
+      "source_file_id": "bba10ddf-7abb-4f30-8de3-d4d8171c6b9c",
+      "claimed_name": "ChristJackson",
+      "suspect_markers": [
+        "Doc17"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 141,
+      "original_sha256": "809050ad6859d9a3ae407bce411813cfa860923a55a360308b3b444436077f9e",
+      "source_file": "WalterPiatt.txt",
+      "source_file_id": "4d6b3aaf-1197-422c-98ed-540fc73ebc1a",
+      "claimed_name": "WalterPiatt",
+      "suspect_markers": [
+        "Gen12"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 147,
+      "original_sha256": "c2e6004e3389fb61237d8a171618e403f7a1a6ad6dfe6c207502ce3566962e0a",
+      "source_file": "JohnEvans_2.txt",
+      "source_file_id": "4ca3ef1c-661c-42d6-8d8c-6656f2d248cd",
+      "claimed_name": "JohnEvans_2",
+      "suspect_markers": [
+        "Gen27"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 148,
+      "original_sha256": "95ffe8641a8efa0d961e7100e296b0e1d72ac83de51242e6e4d089553d360cc5",
+      "source_file": "JacksonSteve.txt",
+      "source_file_id": "c3322400-c982-43aa-8660-ae7bf94e5b62",
+      "claimed_name": "JacksonSteve",
+      "suspect_markers": [
+        "Doc05"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 151,
+      "original_sha256": "931fc977e95a98943a49976f788f2b365586e6d0b52227f95b80719119220dfe",
+      "source_file": "PabloMascot.txt",
+      "source_file_id": "7644e00e-24a9-4ef0-818b-bb8eedc9296b",
+      "claimed_name": "PabloMascot",
+      "suspect_markers": [
+        "Eng12"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 158,
+      "original_sha256": "87cac23eac79a942eb977a982d4b42d6f1737c73fe79cd02262271bf94014db9",
+      "source_file": "AndrewLouis.txt",
+      "source_file_id": "a174f25f-acb3-424a-a20e-625cb1e61669",
+      "claimed_name": "AndrewLouis",
+      "suspect_markers": [
+        "Gen15"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 166,
+      "original_sha256": "fb8b4d713e8b38cd67a449982677ec342e9fe91c8fe75fbaf546a3876db61ad9",
+      "source_file": "PaulLaCamera_4.txt",
+      "source_file_id": "47e2fc58-e3de-46a0-b480-3f5a14e42dec",
+      "claimed_name": "PaulLaCamera_4",
+      "suspect_markers": [
+        "Gen17"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 167,
+      "original_sha256": "03e7ae7deb96ef162494e69ea97a9fe40c2b563e68f05972d1162477e6dbf1f7",
+      "source_file": "PillipGary.txt",
+      "source_file_id": "2a75d009-3a15-4955-92ce-ab82602495b0",
+      "claimed_name": "PillipGary",
+      "suspect_markers": [
+        "Gen10",
+        "Doc10"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 183,
+      "original_sha256": "01915ab765c11799fc13fd4d0a9095129874696a0b2b854440b7d0f1e754072c",
+      "source_file": "RolandDemiri.txt",
+      "source_file_id": "66388d7e-5b9c-4be8-a41f-f284bb253bd2",
+      "claimed_name": "RolandDemiri",
+      "suspect_markers": [
+        "Doc15"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 185,
+      "original_sha256": "326c482202f007f03f7a30a995aa0b7bbf2c0cc7bbdf1ad9c6fbade83889fc7a",
+      "source_file": "SamuelOliver.txt",
+      "source_file_id": "4f36308f-683e-4e9a-a4e9-b54225b34867",
+      "claimed_name": "SamuelOliver",
+      "suspect_markers": [
+        "Doc11"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 187,
+      "original_sha256": "268ea0d81bdaecb23b6368d0842e407c2e1776c8a96e1a3203c5bc1a0dcaa9d2",
+      "source_file": "DarrenMichael.txt",
+      "source_file_id": "8b74a270-3521-4166-ba13-9c9b40631e56",
+      "claimed_name": "DarrenMichael",
+      "suspect_markers": [
+        "Capt01"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 206,
+      "original_sha256": "df336b33fa4e0e7832b5f3f970eb4bd6c3a3eb1e7af75a9d619d3c063886dfea",
+      "source_file": "AndrewCastro.txt",
+      "source_file_id": "98a1ca04-57ed-4cab-b296-a5f484c2d145",
+      "claimed_name": "AndrewCastro",
+      "suspect_markers": [
+        "Oilrigger02"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 238,
+      "original_sha256": "ae252fb536b1e9cee5c73600f7ad555a29b6d0e5655909171271fa7c08bb9b00",
+      "source_file": "PaulLaCamera_1.txt",
+      "source_file_id": "de291f73-dae4-4bcf-be8c-cf405262ddf1",
+      "claimed_name": "PaulLaCamera_1",
+      "suspect_markers": [
+        "Gen09"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 243,
+      "original_sha256": "64149c702ed8de35511e75a258cc7af29a08632391628bbe2d0b2683ef8c4f55",
+      "source_file": "FrankGrass.txt",
+      "source_file_id": "d6ae761f-4469-4ac1-a68b-d4e10471e075",
+      "claimed_name": "FrankGrass",
+      "suspect_markers": [
+        "Gen03"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 244,
+      "original_sha256": "79d21f00f1b7ef8c31ceff5340714a7bb1d5f320d821e723fd727496dde8607d",
+      "source_file": "StephenJonas.txt",
+      "source_file_id": "47c8e0e4-bf18-4245-a6f0-59a45760aed9",
+      "claimed_name": "StephenJonas",
+      "suspect_markers": [
+        "Doc13"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 246,
+      "original_sha256": "8b5f1623d5e8c282f59a5a2a5da49f6e5a1fb0b55555a25d7c9c41ea2990b9dc",
+      "source_file": "LeonardoSouze.txt",
+      "source_file_id": "82069883-86f0-4e51-bc45-353e6e4413e8",
+      "claimed_name": "LeonardoSouze",
+      "suspect_markers": [
+        "Unicef01"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 263,
+      "original_sha256": "f9c61577ef83ae558086a0c82f56878e2dd27727bf71053085cc08fa94046dc2",
+      "source_file": "PaulLaCamera_6.txt",
+      "source_file_id": "655e41a7-69d7-4dbd-8845-2706724551be",
+      "claimed_name": "PaulLaCamera_6",
+      "suspect_markers": [
+        "Gen25"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 294,
+      "original_sha256": "fb19a33d6e835a245449edf8872cd3c47f321769afb1c88b024bedef828ec430",
+      "source_file": "GlenGoddard.txt",
+      "source_file_id": "1c3c3bc2-ed94-461a-84a5-b94bd8ce0fa2",
+      "claimed_name": "GlenGoddard",
+      "suspect_markers": [
+        "Gen04"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 305,
+      "original_sha256": "bda00f0d15b95d8e0604c379c412319c4d134c8f555e33e7329e9373d0a8d84b",
+      "source_file": "RichardGreen.txt",
+      "source_file_id": "15de0dd5-5680-4283-85c2-ef413e8f55d7",
+      "claimed_name": "RichardGreen",
+      "suspect_markers": [
+        "Gen11"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 323,
+      "original_sha256": "04f606d849a65bdb537d062a73c6dcf0c8b5f1c11c8ea735e80aa3f5efdd7f25",
+      "source_file": "StanleyWhite.txt",
+      "source_file_id": "a53d7e41-66f9-449d-a7c3-309587e47a23",
+      "claimed_name": "StanleyWhite",
+      "suspect_markers": [
+        "Oilrigger12",
+        "Eng06",
+        "Engo16"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 325,
+      "original_sha256": "f301a983e93dfdeb129e07610f81cfd96cb688ae733e29adcc2300840c7c8d58",
+      "source_file": "JamesWelch.txt",
+      "source_file_id": "f6f14bb6-231f-4220-afff-a9ee5ea6446c",
+      "claimed_name": "JamesWelch",
+      "suspect_markers": [
+        "Eng03"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 332,
+      "original_sha256": "8592fac46f0b3c5a2a142e40f205ee7e76978a1da8c7fed96cc5f7daac265e33",
+      "source_file": "TravisOwen.txt",
+      "source_file_id": "cd208c55-dcd0-4a3c-bce2-eccc0a4819b0",
+      "claimed_name": "TravisOwen",
+      "suspect_markers": [
+        "Oilrigger15"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 335,
+      "original_sha256": "36fb00a4993b20939ed79bf9226be038784dc9c2112da01d6649ec67e1808fbf",
+      "source_file": "WilliamThomas.txt",
+      "source_file_id": "f04cf6e0-bed1-4f28-a86e-1e424a333124",
+      "claimed_name": "WilliamThomas",
+      "suspect_markers": [
+        "Doc18"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 343,
+      "original_sha256": "853531990b72c6b79b0d2c26af88e0ba58e5e005b83c7f404260265f77ead80f",
+      "source_file": "BenJurgens.txt",
+      "source_file_id": "252fd831-d463-485c-9841-c0ecfdb01812",
+      "claimed_name": "BenJurgens",
+      "suspect_markers": [
+        "Eng08"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 370,
+      "original_sha256": "720db633ebf8b8bac45f51918e36ab7b482209782adf256c8939e87df2c4deab",
+      "source_file": "ChristianKalb.txt",
+      "source_file_id": "2eb37c22-c405-45da-bc29-f4b52541f9af",
+      "claimed_name": "ChristianKalb",
+      "suspect_markers": [
+        "Oilrigger10"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 375,
+      "original_sha256": "2aec181e49165bb552966b63f36dc49aac356cdaca2315568916ee0cef1fe058",
+      "source_file": "WilliamSmith.txt",
+      "source_file_id": "703fd08f-67a5-47c7-8e16-caefa48349a1",
+      "claimed_name": "WilliamSmith",
+      "suspect_markers": [
+        "Eng06"
+      ],
+      "innocent_markers": [
+        "PFB",
+        "PFB3",
+        "PFB0",
+        "PFB49"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 398,
+      "original_sha256": "aa7bc9b729d3d2bb515dd5521fa2125a6a6aaa5c1aaf24be25ad90911251f37a",
+      "source_file": "BrandonStefan.txt",
+      "source_file_id": "530e2433-695c-4ac5-b7fa-09fd945b3aba",
+      "claimed_name": "BrandonStefan",
+      "suspect_markers": [
+        "Tires01"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 427,
+      "original_sha256": "5da1b0309946975575552d5a283a1620486dd08be7493efe979177a3cf9e3515",
+      "source_file": "WilliamAnderson.txt",
+      "source_file_id": "e7b2b492-784a-4168-b997-e2f8a3f5786f",
+      "claimed_name": "WilliamAnderson",
+      "suspect_markers": [
+        "Eng07"
+      ],
+      "innocent_markers": [
+        "PFB",
+        "PFB7"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 434,
+      "original_sha256": "653aaf14f7df8983518f2d93f382a6c25bd52fe93ea80df6451d1dc3d3b4b349",
+      "source_file": "JohnsonCampbell.txt",
+      "source_file_id": "da56bd65-32a1-4042-b71e-c40cfa71ce9a",
+      "claimed_name": "JohnsonCampbell",
+      "suspect_markers": [
+        "Eng04"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 447,
+      "original_sha256": "665bebeaea0c773df831b460c9a113866fdb29eb4fb873a33788b418a663723d",
+      "source_file": "AdamAdalet.txt",
+      "source_file_id": "741dee72-d54e-4c20-ad48-2bbab1f8af2f",
+      "claimed_name": "AdamAdalet",
+      "suspect_markers": [
+        "Oilrigger01"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 473,
+      "original_sha256": "a820c1c062cc7d4d20394a120b944f112902c293ad97c58fe068c3794d502ba8",
+      "source_file": "ScottJames.txt",
+      "source_file_id": "3cb70bc0-3e3e-4a22-994c-606528614bd7",
+      "claimed_name": "ScottJames",
+      "suspect_markers": [
+        "Gen19"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 487,
+      "original_sha256": "b68572b9efcef6b2f60c3b87ceaf39f91472eb6d9e32d61ffa345775478862ed",
+      "source_file": "GiovanniFrancisco.txt",
+      "source_file_id": "4b8e896b-8c96-4d96-abac-4dac681c36ce",
+      "claimed_name": "GiovanniFrancisco",
+      "suspect_markers": [
+        "Doc14"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 498,
+      "original_sha256": "66dec7c6c447969f93b0bffd972e5514421cf0286f723a64c27a8aab0ef1b518",
+      "source_file": "BenNewman.txt",
+      "source_file_id": "0a2c860d-a2d7-4dbe-8d16-be9572e5cb9d",
+      "claimed_name": "BenNewman",
+      "suspect_markers": [
+        "Doc16"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 504,
+      "original_sha256": "d9445e510b085ed96f22aeabefaa631124e74345b2b9c03e14de17de034f66a2",
+      "source_file": "StevenJacksons.txt",
+      "source_file_id": "867b56e7-868f-4d62-acf4-332c350df3a8",
+      "claimed_name": "StevenJacksons",
+      "suspect_markers": [
+        "ENG09"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 518,
+      "original_sha256": "297c5ec190eb6713ef0dccdd64fd2b01d39fa6ad6e1bfbfcef67749a7956b3d8",
+      "source_file": "JohnMiller_1.txt",
+      "source_file_id": "1ea1af0a-8245-446f-999c-61b4b1825840",
+      "claimed_name": "JohnMiller_1",
+      "suspect_markers": [
+        "Gen07"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 525,
+      "original_sha256": "d250482cd9a768e4326de87c44187fd97e38f14820865a8885d69209cdd90648",
+      "source_file": "EricHill_3.txt",
+      "source_file_id": "b396d498-175a-4ea2-8859-11dec0d613b7",
+      "claimed_name": "EricHill_3",
+      "suspect_markers": [
+        "Gen28"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 540,
+      "original_sha256": "1c2b8a88537c95565fa112bb2c7f1c4ab6352559e562ed99aeaa27e9da486b86",
+      "source_file": "DavidJohnsonEng01.txt",
+      "source_file_id": "37cca741-1fac-41de-8f8a-b638bd46a9a4",
+      "claimed_name": "DavidJohnsonEng01",
+      "suspect_markers": [
+        "Eng01"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 543,
+      "original_sha256": "397239483e8b01a9b3d0a670f1b4cb53b635d83f80f4840e49ed08578c10980d",
+      "source_file": "PaulLacamera_7.txt",
+      "source_file_id": "d81fcc93-6f86-4995-abb9-6595e0061501",
+      "claimed_name": "PaulLacamera_7",
+      "suspect_markers": [
+        "Gen25"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 561,
+      "original_sha256": "4fc75cacd5448a189c28c3e2f65cf53aa689158bc9dbeb639cd3f2f83a0bc9b8",
+      "source_file": "ThomasHagen.txt",
+      "source_file_id": "b7e01ebe-9e06-4352-8504-a0c61511fcfb",
+      "claimed_name": "ThomasHagen",
+      "suspect_markers": [
+        "Oilrigger14"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 572,
+      "original_sha256": "dfcbaeb31a74813e31b881bbd1065ed48c45559c17a44aad22d7411ac638ca07",
+      "source_file": "DanielAllyn.txt",
+      "source_file_id": "d4a40d82-e2d4-4069-bea3-f50592158b78",
+      "claimed_name": "DanielAllyn",
+      "suspect_markers": [
+        "Gen01"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 576,
+      "original_sha256": "c8a81801820df6079b0996a729a72a4df8f3d2bb1995c302488e6756cc931e56",
+      "source_file": "JohnMiller_2.txt",
+      "source_file_id": "592f61e3-9866-4c87-a1b8-eb61e1248150",
+      "claimed_name": "JohnMiller_2",
+      "suspect_markers": [
+        "Gen14"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 589,
+      "original_sha256": "a3f1e83886a4441fcfe0ade1ee5e9d1bad0d4f44e915f6a9b6fed8d7fb9bb2c2",
+      "source_file": "DavidJackson.txt",
+      "source_file_id": "10a2bf03-40b1-4d6f-b041-4d6c3ca6fa23",
+      "claimed_name": "DavidJackson",
+      "suspect_markers": [
+        "Oilrigger11"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 597,
+      "original_sha256": "2bd1dfa39323c11ba83414daec6abfdb8ff84d7f502cc8a95c3939adf57457e1",
+      "source_file": "EricHill1.txt",
+      "source_file_id": "877a9b4e-8460-4c4a-bb74-b2196aa78c83",
+      "claimed_name": "EricHill1",
+      "suspect_markers": [
+        "Gen02"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 610,
+      "original_sha256": "a7d2c082ee740e85cb3f5a39f68aa551e078e1e8e2d11405b8cded476a05465c",
+      "source_file": "SavasCristopher.txt",
+      "source_file_id": "90d612bc-589e-4069-933f-702ea7b6634d",
+      "claimed_name": "SavasCristopher",
+      "suspect_markers": [
+        "Doc12"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 616,
+      "original_sha256": "5a6a73657105ef9467bc2b721ae0c3a254d01632f291dbadafa61e1fe6eac4e9",
+      "source_file": "ToddMichael.txt",
+      "source_file_id": "bfa7d7e5-7469-493b-a9e9-429588256ad1",
+      "claimed_name": "ToddMichael",
+      "suspect_markers": [
+        "Gen23"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 635,
+      "original_sha256": "6f98fa29d33fe432d472a19bb9627a5908a01867f41bc2bc4ae01f2a63d14ec6",
+      "source_file": "PaulLaCamera_3.txt",
+      "source_file_id": "132adec5-a7b7-482a-9272-eb074830042d",
+      "claimed_name": "PaulLaCamera_3",
+      "suspect_markers": [
+        "Gen16"
+      ],
+      "innocent_markers": [
+        "PFB",
+        "PFB2",
+        "PFB4"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 642,
+      "original_sha256": "3ac10f7fe03c24aea5c8e5aeb20e33994f47b199c331c3e217075602532ae059",
+      "source_file": "MarkDonald.txt",
+      "source_file_id": "2d9d0aca-2686-4d2e-a51e-9498c693bf01",
+      "claimed_name": "MarkDonald",
+      "suspect_markers": [
+        "Doc09"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 662,
+      "original_sha256": "8ff1d927de097e415df824d9b218f634afb34717656482ec0edd58f5337e2f2f",
+      "source_file": "MikeWilliams.txt",
+      "source_file_id": "d32646cd-2e68-44c9-bbbd-99287f42d8fb",
+      "claimed_name": "MikeWilliams",
+      "suspect_markers": [
+        "Eng05"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 671,
+      "original_sha256": "5485aeed252c39b280625a5965406dd2d3e7ea8510f887acb8877848f549c067",
+      "source_file": "DavidOverton.txt",
+      "source_file_id": "a76d164d-f5b9-4f15-bd98-65518f6d9b4c",
+      "claimed_name": "DavidOverton",
+      "suspect_markers": [
+        "Oilrigger05"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 678,
+      "original_sha256": "970eb446740dbf7c4886821df81c64f0e46d89b9e4e1b874831875572afdcb5f",
+      "source_file": "JohnEvans.txt",
+      "source_file_id": "30b955b5-0333-41a4-9000-1acc0ec0ef75",
+      "claimed_name": "JohnEvans",
+      "suspect_markers": [
+        "Gen20"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 694,
+      "original_sha256": "50b3b5608fc04871570aadcc8b5c651e5daa6bd79d270fd9675e68608aeefb71",
+      "source_file": "DavidJohnsonDrYemen.txt",
+      "source_file_id": "9e41f30c-c5a9-4849-81fb-346f9b034dc1",
+      "claimed_name": "DavidJohnsonDrYemen",
+      "suspect_markers": [
+        "Doc03"
+      ],
+      "innocent_markers": [
+        "PFB",
+        "PFB28"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 714,
+      "original_sha256": "0980127609629d9451bfe6787ecaa3e7da0dd5d17c66a927bcdd72a0604ef65f",
+      "source_file": "LouisAndrewSgt.txt",
+      "source_file_id": "f99ee410-c8d3-43f2-99b6-5eff5f907a33",
+      "claimed_name": "LouisAndrewSgt",
+      "suspect_markers": [
+        "Gen08"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 719,
+      "original_sha256": "99ce132d83d803f3ece52cc04d7ec0917e0ab9d310e24c675a482d1c16dda342",
+      "source_file": "DavidJohnsonDrSyria.txt",
+      "source_file_id": "75535bb6-4dcf-4154-bfde-0506947d09a6",
+      "claimed_name": "DavidJohnsonDrSyria",
+      "suspect_markers": [
+        "Doc02"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 721,
+      "original_sha256": "d162fc512ac2fc1cb8083a60442deaa5fa04a92a129180ebb3155b4d8c4055b1",
+      "source_file": "MatinPavel.txt",
+      "source_file_id": "1bb92fe9-511b-4a85-8053-3a792c9aa6ab",
+      "claimed_name": "MatinPavel",
+      "suspect_markers": [
+        "Doc19"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 732,
+      "original_sha256": "3393045feb2a0aac45cd32980f4ceb09568baf1f7c4e50c60bfe7b3d81cd1661",
+      "source_file": "FrankWilliams.txt",
+      "source_file_id": "d2b24b86-b27a-4b32-8394-12e474ef88d7",
+      "claimed_name": "FrankWilliams",
+      "suspect_markers": [
+        "Gen26"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 738,
+      "original_sha256": "af8c981f0bb11b46f0df7903bdac83ff245308398d193df1b46342ff20ef4f36",
+      "source_file": "JohnErwin.txt",
+      "source_file_id": "eace83b8-eaa6-404c-b430-8c749bbc9fae",
+      "claimed_name": "JohnErwin",
+      "suspect_markers": [
+        "Doc08"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 776,
+      "original_sha256": "c1b2500cfb628fad588b39b779a3faed8f3d9ac2d435af31d6cb00f65e06cbe0",
+      "source_file": "PabloJuanMoro.txt",
+      "source_file_id": "e6ff9655-0c56-4789-8615-2e0ec25f5873",
+      "claimed_name": "PabloJuanMoro",
+      "suspect_markers": [
+        "Eng14"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 784,
+      "original_sha256": "2659fc51ea10bb654e524c20b700e4b75a51c0a8885fd5fc8ae9c43f61bd2b91",
+      "source_file": "CharlesAruther.txt",
+      "source_file_id": "64a7ae4b-ce87-435d-b777-fe220133235f",
+      "claimed_name": "CharlesAruther",
+      "suspect_markers": [
+        "Oilrigger09"
+      ],
+      "innocent_markers": [
+        "PFB",
+        "PFB9"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 786,
+      "original_sha256": "2030919ec69a25a3468b682b09a375af7a51e2e7486b5e6e939b17ae67a1e126",
+      "source_file": "JoelSteve.txt",
+      "source_file_id": "cb624f43-910c-451b-b4c6-4cb40bb8b3a4",
+      "claimed_name": "JoelSteve",
+      "suspect_markers": [
+        "Eng16"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 855,
+      "original_sha256": "83d2b5f0807e73a1303ee21f77daba9063e79a23dfe34bacd1ffec43bc2a06a4",
+      "source_file": "AlbertCasey.txt",
+      "source_file_id": "edbe3c07-00bb-49dd-a4bf-d6dac029d7bb",
+      "claimed_name": "AlbertCasey",
+      "suspect_markers": [
+        "Doc01"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 858,
+      "original_sha256": "cc16dd72253475a3afa7c6a5e804ae456d00d4c04d4229ae3f4eebe710bd5451",
+      "source_file": "WilliamGarrett.txt",
+      "source_file_id": "efbe3e31-c4d9-4d08-b4bb-f9cb1fd464f5",
+      "claimed_name": "WilliamGarrett",
+      "suspect_markers": [
+        "Gen13"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 924,
+      "original_sha256": "5339d344f18a1a980396b9a62d70a3f3cf8cb91103b0904e49461f74e6ea9f52",
+      "source_file": "JeremyKlaus.txt",
+      "source_file_id": "8c4d42d2-713a-4611-ba16-b288f4a1a0f2",
+      "claimed_name": "JeremyKlaus",
+      "suspect_markers": [
+        "Oilrigger07"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 954,
+      "original_sha256": "8a9de60007acd54d337606990b9c51a4c1bcca12cd0a54144c75f7d3144af108",
+      "source_file": "AustinMiller.txt",
+      "source_file_id": "05350492-64e2-4710-a6f0-673ffe52e043",
+      "claimed_name": "AustinMiller",
+      "suspect_markers": [
+        "Gen24"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 972,
+      "original_sha256": "04ebd3b0777c554144abd5c44d3486df1a2feeaa7f48acf752413a42b8aee86e",
+      "source_file": "MarvinJordan.txt",
+      "source_file_id": "76aa8256-4128-4ccb-9d5f-b54ec517ea81",
+      "claimed_name": "MarvinJordan",
+      "suspect_markers": [
+        "Oilrigger04"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 973,
+      "original_sha256": "e3d8728f10560f254aa09a28851b9dca1b6dfae74493ae5fc7d899eabfe9e0ae",
+      "source_file": "JamesGregory.txt",
+      "source_file_id": "af551f37-da18-4171-bf9e-4cf8491a9a86",
+      "claimed_name": "JamesGregory",
+      "suspect_markers": [
+        "Gen06"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 979,
+      "original_sha256": "8426e32c0ccebb18e449e760da5ef1ae961f57470e674890d34f1197ba2932e4",
+      "source_file": "GarthDavis.txt",
+      "source_file_id": "4a5a559b-a119-4bbd-8695-399dda54f473",
+      "claimed_name": "GarthDavis",
+      "suspect_markers": [
+        "Doc06"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 992,
+      "original_sha256": "2c6a71cb05a4fe22407cb8607fd317665d5d73bcfd82b799fe0c0a95193cac92",
+      "source_file": "PaulMcCartney.txt",
+      "source_file_id": "99555ddb-32d9-4274-9bda-4583d2fbc9f8",
+      "claimed_name": "PaulMcCartney",
+      "suspect_markers": [
+        "Celeb01",
+        "CelebManager01"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 1000,
+      "original_sha256": "108de8913ffe264148cd0b888e376094954dfe458285c55a53130f60a7ccd9a3",
+      "source_file": "RichardDemarstro.txt",
+      "source_file_id": "d8e6080a-a482-4394-aa51-b451ef4ee3ba",
+      "claimed_name": "RichardDemarstro",
+      "suspect_markers": [
+        "Capt02"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 1002,
+      "original_sha256": "c8baa064a40facefecfb771b64c178bea6752b48343bd2849049130cea3ffb47",
+      "source_file": "David Donald.txt",
+      "source_file_id": "4b16df4c-3d28-4dee-9af4-9dbf0f7bbc27",
+      "claimed_name": "David Donald",
+      "suspect_markers": [
+        "Oilrigger03"
+      ],
+      "innocent_markers": [
+        "PFB",
+        "PFB02"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 1004,
+      "original_sha256": "c50886fcb8c992b3430b003c2e1b03119a52fd520a3f7157fc32457ec55a4732",
+      "source_file": "JohnGiovanni.txt",
+      "source_file_id": "a0e8a7a1-ec90-4310-8d2c-37d608ec020e",
+      "claimed_name": "JohnGiovanni",
+      "suspect_markers": [
+        "Oilrigger08"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 1012,
+      "original_sha256": "bf58d81d57bf3539dd860af946c3d6f91ae0b9786837f0b981b463f1e5b2cb5c",
+      "source_file": "OliverAntero.txt",
+      "source_file_id": "349e4468-21f0-4420-aebc-7ccbcd3bd1c2",
+      "claimed_name": "OliverAntero",
+      "suspect_markers": [
+        "Eng13"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 1037,
+      "original_sha256": "77d0e18d62a92f2eac53ef4493bec00c8f6afee2d36e294925373cd2f094533f",
+      "source_file": "JasonRichard.txt",
+      "source_file_id": "9786bfdf-a618-4e0b-a9d3-a05a9e6076fd",
+      "claimed_name": "JasonRichard",
+      "suspect_markers": [
+        "Doc07"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 1046,
+      "original_sha256": "30934f2a322a72e1900c1339a982335e56177b0eb02fba67385c26bb7f6eba15",
+      "source_file": "DaveChris.txt",
+      "source_file_id": "8391c02e-6b69-4f0d-861b-5abf1f6306be",
+      "claimed_name": "DaveChris",
+      "suspect_markers": [
+        "Eng15"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": true
+    },
+    {
+      "row_index": 1052,
+      "original_sha256": "e0c89c44297a93f085a56d2c0d695703e5f1cfee196d7dfc8a93722a90c4d469",
+      "source_file": "DonaldModreno.txt",
+      "source_file_id": "9df09c68-0fff-467e-ba9e-8d94263d2abe",
+      "claimed_name": "DonaldModreno",
+      "suspect_markers": [
+        "Doc04"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    },
+    {
+      "row_index": 1067,
+      "original_sha256": "72d402dd8caac8610b73806980ba3fa7841d6572ed65632eaf38ba2b26c58339",
+      "source_file": "EricGraham.txt",
+      "source_file_id": "2471d522-0fc2-4c4c-99f2-db7b82defd04",
+      "claimed_name": "EricGraham",
+      "suspect_markers": [
+        "Eng02"
+      ],
+      "innocent_markers": [
+        "PFB"
+      ],
+      "was_misparsed": false
+    }
+  ]
+}
+
