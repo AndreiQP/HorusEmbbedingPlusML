@@ -27,6 +27,15 @@ from .hierarchical_global import (
     run_global_shard,
     run_saturation_shard,
 )
+from .context_block_explainability import (
+    CONTEXT_BLOCK_ROOT,
+    MODEL_MODES,
+    REPRESENTATIONS,
+    aggregate_context_results,
+    build_context_embedding_cache,
+    run_context_explanation_shard,
+    train_context_transformer,
+)
 from .report import build_studies_report
 from .slurm import write_slurm_grids
 from .transformer_analysis import analyze_transformer_complementarity, run_transformer_threshold_study
@@ -96,6 +105,23 @@ def parser() -> argparse.ArgumentParser:
     study.add_argument("--checkpoint-root")
     study.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     study.add_argument("--no-resume", action="store_true")
+    context = sub.add_parser("context-block-study")
+    context.add_argument(
+        "--action", required=True,
+        choices=["cache", "train", "explain", "aggregate"],
+    )
+    context.add_argument("--representation", choices=REPRESENTATIONS)
+    context.add_argument("--model-mode", choices=MODEL_MODES)
+    context.add_argument("--seed", type=int, default=42)
+    context.add_argument("--split", choices=["test_internal", "validation"])
+    context.add_argument("--source-split", choices=["train", "validation"])
+    context.add_argument("--shard-index", type=int)
+    context.add_argument("--shard-count", type=int, default=32)
+    context.add_argument("--output-dir", default=str(CONTEXT_BLOCK_ROOT))
+    context.add_argument("--checkpoint-root")
+    context.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    context.add_argument("--force", action="store_true")
+    context.add_argument("--no-resume", action="store_true")
     sub.add_parser("aggregate")
     sub.add_parser("report")
     grids = sub.add_parser("make-slurm-grids")
@@ -271,6 +297,55 @@ def main(argv=None) -> int:
                 "artifacts_dir": str(destination),
                 "status": "saturation_complete",
             }
+    elif args.command == "context-block-study":
+        import torch
+
+        if args.device == "cuda" and not torch.cuda.is_available():
+            raise RuntimeError("CUDA foi exigida, mas não está disponível")
+        device = (
+            torch.device("cuda") if args.device == "cuda"
+            else torch.device("cpu") if args.device == "cpu"
+            else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        )
+        if args.action == "cache":
+            representations = (args.representation,) if args.representation else REPRESENTATIONS
+            source_splits = (args.source_split,) if args.source_split else ("train", "validation")
+            destination = build_context_embedding_cache(
+                output_root=args.output_dir, representations=representations,
+                source_splits=source_splits, device=device, force=args.force,
+            )
+            result = {"artifacts_dir": str(destination), "device": str(device)}
+        elif args.action == "train":
+            if not args.representation or args.representation == "canonical_message":
+                raise ValueError("--action train exige uma representação contextual")
+            destination = train_context_transformer(
+                args.representation, args.seed,
+                output_root=args.output_dir, force=args.force,
+            )
+            result = {"artifacts_dir": str(destination), "seed": args.seed}
+        elif args.action == "explain":
+            required = {
+                "--representation": args.representation,
+                "--model-mode": args.model_mode,
+                "--split": args.split,
+                "--shard-index": args.shard_index,
+            }
+            missing = [name for name, value in required.items() if value is None]
+            if missing:
+                raise ValueError(f"Argumentos ausentes: {', '.join(missing)}")
+            destination = run_context_explanation_shard(
+                split=args.split, representation=args.representation,
+                model_mode=args.model_mode, shard_index=args.shard_index,
+                shard_count=args.shard_count, output_root=args.output_dir,
+                device=device, checkpoint_root=args.checkpoint_root,
+                resume=not args.no_resume,
+            )
+            result = {"artifacts_dir": str(destination), "device": str(device)}
+        else:
+            destination = aggregate_context_results(
+                output_root=args.output_dir, expected_shards=args.shard_count,
+            )
+            result = {"artifacts_dir": str(destination), "status": "complete"}
     elif args.command == "aggregate":
         result = aggregate_dataset_size_results()
         try:

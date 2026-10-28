@@ -71,3 +71,57 @@ As curvas adicionais de saturação ficam em
 `N_k` é a quantidade de conversas com ao menos `k` turnos. `metric_N_k` é a
 quantidade que também possui ao menos `k` evidências válidas alinhadas à
 decisão. A distinção é intencional e aparece no primeiro gráfico.
+
+## Comparação por unidade contextual
+
+O estudo comparativo fica dentro do mesmo estudo hierárquico, em
+`hierarchical_explainability/context_blocks/`. Ele não altera a API nem a
+extensão. As sete representações avaliadas são:
+
+- `canonical_message`;
+- `speaker_block_4`;
+- `chronological_window_4` até `chronological_window_8`.
+
+O corte das últimas 100 mensagens acontece antes da construção dos blocos.
+Blocos por interlocutor preservam sobras; janelas cronológicas usam stride 1 e
+um bloco parcial em conversas menores que a janela. Cada bloco guarda os IDs,
+índices, interlocutores, textos e offsets das mensagens originais.
+
+Cada representação é avaliada em `frozen_probe` e `retrained`. O primeiro usa
+os três Transformers finalistas canônicos sem retreino. O segundo usa um
+Transformer treinado especificamente para a representação, com a configuração
+finalista BGE (batch 16, LR 1e-6, 2 heads, 4 layers, hidden 256, dropout 0,1,
+até 100 épocas e early stopping). O canônico reutiliza os finalistas existentes
+nos dois modos e funciona como controle de identidade.
+
+Valide a submissão:
+
+```bash
+bash backend/slurm/studies/submit_context_block_explainability.sh --dry-run
+```
+
+Execute o fluxo completo:
+
+```bash
+bash backend/slurm/studies/submit_context_block_explainability.sh \
+  --shards 32 --max-parallel 8
+```
+
+Para evitar um nó conhecido com erro de GPU:
+
+```bash
+bash backend/slurm/studies/submit_context_block_explainability.sh \
+  --shards 32 --max-parallel 8 --exclude-node dl-01
+```
+
+A submissão encadeia quatro fases com `afterok`: cache BGE, treinamento,
+explicabilidade e agregação. Os resultados consolidados ficam em
+`context_blocks/aggregates/`. O notebook
+`backend/notebooks/bge_explainability.ipynb` lê esses Parquets e mantém sempre
+separados split, representação, modo, seed, política de ranking e população
+(`all_available` ou `paired_common`).
+
+As métricas de fidelidade são calculadas até todas as unidades disponíveis e
+registram simultaneamente unidades selecionadas, mensagens originais únicas,
+fração da conversa e redundância. `k95` e `k_joint` são comparados em mensagens
+originais únicas, evitando favorecer artificialmente janelas sobrepostas.
