@@ -9,6 +9,8 @@ SHARDS=32
 MAX_PARALLEL=8
 EXCLUDE_NODE=""
 DRY_RUN=0
+MAIL_USER="${SLURM_MAIL_USER:-a169194@dac.unicamp.br}"
+MAIL_ENABLED=1
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -17,6 +19,8 @@ while [[ $# -gt 0 ]]; do
         --shards) shift; SHARDS="${1:?valor ausente}" ;;
         --max-parallel) shift; MAX_PARALLEL="${1:?valor ausente}" ;;
         --exclude-node) shift; EXCLUDE_NODE="${1:?nó ausente}" ;;
+        --mail-user) shift; MAIL_USER="${1:?e-mail ausente}" ;;
+        --no-mail) MAIL_ENABLED=0 ;;
         --dry-run) DRY_RUN=1 ;;
         *) echo "Opção inválida: $1" >&2; exit 2 ;;
     esac
@@ -27,6 +31,10 @@ done
 mkdir -p "$PROJECT_ROOT/slurm_logs/model_studies" "$OUTPUT_DIR"
 BASE="ALL,HORUS_PROJECT_ROOT=$PROJECT_ROOT,HORUS_CHECKPOINT_ROOT=$CHECKPOINT_ROOT,CONTEXT_BLOCK_OUTPUT_DIR=$OUTPUT_DIR,CONTEXT_BLOCK_SHARDS=$SHARDS"
 EXPLAIN_TASKS=$((7 * 2 * 2 * SHARDS))
+mail_args=()
+if [[ "$MAIL_ENABLED" == "1" && -n "$MAIL_USER" ]]; then
+    mail_args+=(--mail-user="$MAIL_USER" --mail-type=BEGIN,END,FAIL)
+fi
 
 if [[ "$DRY_RUN" == "1" ]]; then
     echo "[dry-run] cache: 14 tarefas GPU (7 representações × train/validation)"
@@ -34,23 +42,28 @@ if [[ "$DRY_RUN" == "1" ]]; then
     echo "[dry-run] explain: $EXPLAIN_TASKS tarefas GPU (7 × 2 modos × 2 splits × $SHARDS shards)"
     echo "[dry-run] aggregate: 1 tarefa CPU"
     echo "[dry-run] output=$OUTPUT_DIR max_parallel=$MAX_PARALLEL"
+    if [[ ${#mail_args[@]} -gt 0 ]]; then
+        echo "[dry-run] mail_user=$MAIL_USER mail_type=BEGIN,END,FAIL"
+    else
+        echo "[dry-run] e-mail desabilitado"
+    fi
     exit 0
 fi
 
 gpu_args=()
 [[ -n "$EXCLUDE_NODE" ]] && gpu_args+=(--exclude="$EXCLUDE_NODE")
 
-cache_id=$(sbatch --parsable "${gpu_args[@]}" --array="0-13%$MAX_PARALLEL" \
+cache_id=$(sbatch --parsable "${mail_args[@]}" "${gpu_args[@]}" --array="0-13%$MAX_PARALLEL" \
     --export="$BASE,CONTEXT_BLOCK_ACTION=cache" --job-name=bge_ctx_cache \
     "$SCRIPT_DIR/run_context_block_explainability.sbatch")
-train_id=$(sbatch --parsable "${gpu_args[@]}" --dependency="afterok:$cache_id" \
+train_id=$(sbatch --parsable "${mail_args[@]}" "${gpu_args[@]}" --dependency="afterok:$cache_id" \
     --array="0-17%$MAX_PARALLEL" --export="$BASE,CONTEXT_BLOCK_ACTION=train" \
     --job-name=bge_ctx_train "$SCRIPT_DIR/run_context_block_explainability.sbatch")
-explain_id=$(sbatch --parsable "${gpu_args[@]}" --dependency="afterok:$train_id" \
+explain_id=$(sbatch --parsable "${mail_args[@]}" "${gpu_args[@]}" --dependency="afterok:$train_id" \
     --array="0-$((EXPLAIN_TASKS - 1))%$MAX_PARALLEL" \
     --export="$BASE,CONTEXT_BLOCK_ACTION=explain" --job-name=bge_ctx_explain \
     "$SCRIPT_DIR/run_context_block_explainability.sbatch")
-aggregate_id=$(sbatch --parsable --dependency="afterok:$explain_id" \
+aggregate_id=$(sbatch --parsable "${mail_args[@]}" --dependency="afterok:$explain_id" \
     --export="$BASE" --job-name=bge_ctx_aggregate \
     "$SCRIPT_DIR/run_context_block_explainability_cpu.sbatch")
 

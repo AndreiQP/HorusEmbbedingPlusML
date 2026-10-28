@@ -107,6 +107,11 @@ bash backend/slurm/studies/submit_context_block_explainability.sh \
   --shards 32 --max-parallel 8
 ```
 
+Por padrão, cada fase envia notificações SLURM `BEGIN`, `END` e `FAIL` para
+`a169194@dac.unicamp.br`. O endereço pode ser substituído com
+`--mail-user endereco@dominio` ou pela variável `SLURM_MAIL_USER`. Use
+`--no-mail` para desabilitar as notificações.
+
 Para evitar um nó conhecido com erro de GPU:
 
 ```bash
