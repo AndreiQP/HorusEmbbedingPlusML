@@ -13,11 +13,33 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from machine_learning.studies.context_block_explainability import (
+    _stream_parquet_files,
     build_context_blocks,
     _source_fingerprint,
     explain_context_sequence,
     generate_block_word_perturbations,
 )
+
+
+def test_stream_parquet_files_consolidates_shards(tmp_path):
+    first = pd.DataFrame({
+        "sample_id": ["a", "b"], "value": [1.0, 2.0], "optional": [None, None],
+    })
+    second = pd.DataFrame({"sample_id": ["c"], "value": [3.0], "optional": ["present"]})
+    empty = first.iloc[0:0]
+    paths = [tmp_path / f"shard-{index}.parquet" for index in range(3)]
+    first.to_parquet(paths[0], index=False)
+    empty.to_parquet(paths[1], index=False)
+    second.to_parquet(paths[2], index=False)
+
+    destination = tmp_path / "consolidated.parquet"
+    rows = _stream_parquet_files(paths, destination, batch_size=1)
+
+    assert rows == 3
+    result = pd.read_parquet(destination)
+    assert result.sample_id.tolist() == ["a", "b", "c"]
+    assert result.value.tolist() == [1.0, 2.0, 3.0]
+    assert result.optional.fillna("missing").tolist() == ["missing", "missing", "present"]
 
 
 def _conversation(turns: int = 10) -> str:

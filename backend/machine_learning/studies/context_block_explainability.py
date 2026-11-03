@@ -125,6 +125,68 @@ def _atomic_parquet(path: Path, frame: pd.DataFrame) -> None:
             os.unlink(temporary)
 
 
+def _stream_parquet_files(
+    paths: Sequence[Path],
+    destination: Path,
+    *,
+    batch_size: int = 65_536,
+) -> int:
+    """Consolida Parquets sem materializar a tabela completa em memória.
+
+    Os shards de ``span_effects`` são compactos em disco, mas podem ocupar
+    dezenas de gigabytes quando convertidos simultaneamente em DataFrames.
+    Este writer mantém somente um record batch descompactado por vez e troca o
+    arquivo final atomicamente após a conclusão.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(
+        prefix=f".{destination.name}.", suffix=".parquet", dir=destination.parent,
+    )
+    os.close(fd)
+    writer = None
+    row_count = 0
+    try:
+        nonempty_paths = []
+        schemas = []
+        for path in paths:
+            parquet = pq.ParquetFile(path)
+            if parquet.metadata.num_rows == 0:
+                continue
+            nonempty_paths.append(path)
+            schemas.append(parquet.schema_arrow.remove_metadata())
+
+        if schemas:
+            # Alguns shards podem inferir ``null`` para uma coluna que contém
+            # apenas valores ausentes. A união permissiva promove esse tipo ao
+            # tipo concreto encontrado nos demais shards.
+            output_schema = pa.unify_schemas(schemas, promote_options="permissive")
+            writer = pq.ParquetWriter(temporary, output_schema, compression="zstd")
+
+        for path in nonempty_paths:
+            parquet = pq.ParquetFile(path)
+            for batch in parquet.iter_batches(batch_size=batch_size):
+                table = pa.Table.from_batches([batch]).replace_schema_metadata(None)
+                if not table.schema.equals(output_schema, check_metadata=False):
+                    table = table.cast(output_schema)
+                writer.write_table(table)
+                row_count += table.num_rows
+        if writer is None:
+            pd.DataFrame().to_parquet(temporary, index=False, compression="zstd")
+        else:
+            writer.close()
+            writer = None
+        os.replace(temporary, destination)
+    finally:
+        if writer is not None:
+            writer.close()
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return row_count
+
+
 def _json_list(value: Any) -> list:
     if isinstance(value, str):
         return json.loads(value)
@@ -993,9 +1055,10 @@ def aggregate_context_results(
     aggregate = root / "aggregates"
     aggregate.mkdir(parents=True, exist_ok=True)
     tables = ["conversation_metrics", "unit_effects", "span_effects", "fidelity", "random_controls", "stability"]
-    consolidated = {}
+    consolidated_paths: dict[str, Path] = {}
+    row_counts: dict[str, int] = {}
     for name in tables:
-        frames = []
+        paths = []
         for representation in REPRESENTATIONS:
             for mode in MODEL_MODES:
                 for split in ("test_internal", "validation"):
@@ -1013,12 +1076,15 @@ def aggregate_context_results(
                         expected_checksum = complete.get("checksums", {}).get(path.name)
                         if expected_checksum != sha256_file(path):
                             raise RuntimeError(f"Checksum inválido: {path}")
-                        frame = pd.read_parquet(path)
-                        if not frame.empty:
-                            frames.append(frame)
-        consolidated[name] = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-        _atomic_parquet(aggregate / f"{name}.parquet", consolidated[name])
-    fidelity = consolidated["fidelity"]
+                        paths.append(path)
+        consolidated_path = aggregate / f"{name}.parquet"
+        row_counts[name] = _stream_parquet_files(paths, consolidated_path)
+        consolidated_paths[name] = consolidated_path
+
+    # Somente estas duas tabelas são necessárias para os agregados. As tabelas
+    # volumosas (principalmente span_effects) permanecem em Parquet.
+    conversations = pd.read_parquet(consolidated_paths["conversation_metrics"])
+    fidelity = pd.read_parquet(consolidated_paths["fidelity"])
     points = _k_points(fidelity)
     _atomic_parquet(aggregate / "quantity_points.parquet", points)
     metric_rows = []
@@ -1028,7 +1094,6 @@ def aggregate_context_results(
         "cumulative_evidence_mass_logit", "redundancy_gap_logit",
         "unique_messages_covered", "coverage_fraction", "redundancy_ratio",
     ]
-    conversations = consolidated["conversation_metrics"]
     conversation_keys = ["split", "representation", "model_mode", "seed", "sample_id"]
     if conversations.duplicated(conversation_keys).any():
         duplicates = conversations.loc[
@@ -1142,7 +1207,7 @@ def aggregate_context_results(
         "schema_version": SCHEMA_VERSION,
         "representations": list(REPRESENTATIONS), "model_modes": list(MODEL_MODES),
         "seeds": list(SEEDS), "expected_shards": expected_shards,
-        "rows": {name: len(frame) for name, frame in consolidated.items()},
+        "rows": row_counts,
         "paired_common_conversations": common_counts,
     })
     return aggregate

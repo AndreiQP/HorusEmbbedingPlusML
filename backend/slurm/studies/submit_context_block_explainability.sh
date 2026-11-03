@@ -9,6 +9,7 @@ SHARDS=32
 MAX_PARALLEL=8
 EXCLUDE_NODE=""
 DRY_RUN=0
+AGGREGATE_ONLY=0
 MAIL_USER="${SLURM_MAIL_USER:-a169194@dac.unicamp.br}"
 MAIL_ENABLED=1
 
@@ -21,6 +22,7 @@ while [[ $# -gt 0 ]]; do
         --exclude-node) shift; EXCLUDE_NODE="${1:?nó ausente}" ;;
         --mail-user) shift; MAIL_USER="${1:?e-mail ausente}" ;;
         --no-mail) MAIL_ENABLED=0 ;;
+        --aggregate-only) AGGREGATE_ONLY=1 ;;
         --dry-run) DRY_RUN=1 ;;
         *) echo "Opção inválida: $1" >&2; exit 2 ;;
     esac
@@ -37,6 +39,11 @@ if [[ "$MAIL_ENABLED" == "1" && -n "$MAIL_USER" ]]; then
 fi
 
 if [[ "$DRY_RUN" == "1" ]]; then
+    if [[ "$AGGREGATE_ONLY" == "1" ]]; then
+        echo "[dry-run] aggregate-only: 1 tarefa CPU; shards existentes serão reutilizados"
+        echo "[dry-run] output=$OUTPUT_DIR shards=$SHARDS"
+        exit 0
+    fi
     echo "[dry-run] cache: 14 tarefas GPU (7 representações × train/validation)"
     echo "[dry-run] train: 18 tarefas GPU (6 representações × 3 seeds)"
     echo "[dry-run] explain: $EXPLAIN_TASKS tarefas GPU (7 × 2 modos × 2 splits × $SHARDS shards)"
@@ -47,6 +54,16 @@ if [[ "$DRY_RUN" == "1" ]]; then
     else
         echo "[dry-run] e-mail desabilitado"
     fi
+    exit 0
+fi
+
+if [[ "$AGGREGATE_ONLY" == "1" ]]; then
+    aggregate_id=$(sbatch --parsable "${mail_args[@]}" --export="$BASE" \
+        --job-name=bge_ctx_aggregate \
+        "$SCRIPT_DIR/run_context_block_explainability_cpu.sbatch")
+    echo "[submit] aggregate=$aggregate_id"
+    echo "[monitor] squeue -j $aggregate_id"
+    echo "[results] $OUTPUT_DIR/aggregates"
     exit 0
 fi
 
