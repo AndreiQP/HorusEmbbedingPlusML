@@ -76,16 +76,63 @@ para a nova unidade contextual.
         """CONTEXT_ROOT = HIER_STUDY_ROOT / 'context_blocks'
 CONTEXT_AGG = CONTEXT_ROOT / 'aggregates'
 
-def read_context(name):
+def read_context(name, columns=None, filters=None):
     path = CONTEXT_AGG / f'{name}.parquet'
     if not path.exists():
         print(f'Artefato contextual ausente: {path}')
         return pd.DataFrame()
-    return pd.read_parquet(path)
+    return pd.read_parquet(path, columns=columns, filters=filters)
+
+def context_parquet_info(name):
+    path = CONTEXT_AGG / f'{name}.parquet'
+    if not path.exists():
+        return {'artefato': name, 'linhas': 0, 'tamanho_gib': 0, 'status': 'ausente'}
+    import pyarrow.parquet as pq
+    metadata = pq.ParquetFile(path).metadata
+    return {
+        'artefato': name, 'linhas': metadata.num_rows,
+        'tamanho_gib': path.stat().st_size / 1024**3, 'status': 'disponível',
+    }
+
+context_manifest_path = CONTEXT_ROOT / 'manifest.json'
+CTX_MANIFEST = (
+    json.loads(context_manifest_path.read_text(encoding='utf-8'))
+    if context_manifest_path.exists() else {}
+)
+CTX_EXPECTED_SHARDS = int(CTX_MANIFEST.get('expected_shards', 32))
+_CTX_SHARD_CACHE = {}
+
+def locate_context_shard(*, sample_id, split, representation, model_mode):
+    key = (str(sample_id), split, representation, model_mode)
+    if key in _CTX_SHARD_CACHE:
+        return _CTX_SHARD_CACHE[key]
+    base = CONTEXT_ROOT / 'explanations' / representation / model_mode / split
+    for shard_index in range(CTX_EXPECTED_SHARDS):
+        shard = base / f'shard-{shard_index:05d}'
+        path = shard / 'conversation_metrics.parquet'
+        if not path.exists():
+            continue
+        found = pd.read_parquet(
+            path, columns=['sample_id'], filters=[('sample_id', '==', str(sample_id))]
+        )
+        if not found.empty:
+            _CTX_SHARD_CACHE[key] = shard
+            return shard
+    raise KeyError(f'Shard não encontrado para {key}')
+
+def read_context_detail(
+    name, *, sample_id, split, representation, model_mode, seed=42, columns=None,
+):
+    shard = locate_context_shard(
+        sample_id=sample_id, split=split,
+        representation=representation, model_mode=model_mode,
+    )
+    path = shard / f'{name}.parquet'
+    return pd.read_parquet(path, columns=columns, filters=[
+        ('sample_id', '==', str(sample_id)), ('seed', '==', int(seed)),
+    ])
 
 ctx_conversations = read_context('conversation_metrics')
-ctx_units = read_context('unit_effects')
-ctx_spans = read_context('span_effects')
 ctx_fidelity = read_context('fidelity')
 ctx_controls = read_context('random_controls')
 ctx_stability = read_context('stability')
@@ -95,6 +142,21 @@ ctx_points = read_context('quantity_points')
 ctx_classification = read_context('classification_metrics')
 ctx_agreement = read_context('canonical_agreement')
 ctx_paired = read_context('paired_common_fidelity')
+
+# unit_effects e span_effects são lidos sob demanda por sample_id. Em especial,
+# span_effects possui mais de 100 milhões de linhas e nunca deve ser
+# materializado integralmente no kernel do notebook.
+CTX_UNIT_COLUMNS = [
+    'sample_id', 'split', 'representation', 'model_mode', 'seed',
+    'prediction_category', 'block_index', 'message_model_indices', 'text',
+    'delta_logit', 'abs_delta_logit', 'class_support_delta', 'direction',
+    'selected_absolute_influence', 'selected_decision_supporting',
+]
+CTX_SPAN_COLUMNS = [
+    'sample_id', 'split', 'representation', 'model_mode', 'seed',
+    'prediction_category', 'block_index', 'message_model_index', 'span_text',
+    'ngram_size', 'delta_logit', 'abs_delta_logit', 'class_support_delta', 'direction',
+]
 
 CTX_REPRESENTATIONS = [
     'canonical_message', 'speaker_block_4',
@@ -119,6 +181,13 @@ display(pd.DataFrame({
     'configuração': ['modo', 'população', 'seed', 'ranking'],
     'valor': [CTX_MODEL_MODE, CTX_POPULATION, CTX_SEED, CTX_RANKING_POLICY],
 }))
+display(pd.DataFrame([
+    context_parquet_info(name) for name in (
+        'conversation_metrics', 'unit_effects', 'span_effects', 'fidelity',
+        'random_controls', 'stability', 'metric_summary', 'quantity_points',
+    )
+]).style.format({'linhas': '{:,.0f}', 'tamanho_gib': '{:.3f}'}))
+print('unit_effects e span_effects: leitura filtrada por conversa nas seções de amostragem.')
 """
     ),
     markdown("### 1. Auditoria, cobertura, blocos parciais e truncamento"),
@@ -466,59 +535,148 @@ if not ctx_points.empty:
     ))
 """
     ),
-    markdown("### 17–18. Explorador: a mesma conversa nas sete representações"),
+    markdown(
+        """### 17. Catálogo de amostragem de todas as avaliações
+
+A tabela confirma que cada combinação de split, modo e representação possui
+amostras. Em seguida, uma mesma conversa de cada split é aberta nas sete
+representações e nos dois modos (`frozen_probe` e `retrained`). Assim, o método
+canônico, os blocos de quatro por interlocutor e cada sliding window 4–8 têm
+exemplos diretamente criticáveis no notebook.
+"""
+    ),
     code(
-        """CTX_EXPLORER_SPLIT = 'validation'
-CTX_EXPLORER_SAMPLE_ID = None
+        """ctx_sample_catalog = (
+    ctx_conversations[ctx_conversations.seed.eq(CTX_SEED)]
+    .groupby(['split', 'model_mode', 'representation', 'prediction_category'], as_index=False)
+    .agg(N=('sample_id', 'nunique'))
+    .sort_values(['split', 'model_mode', 'representation', 'prediction_category'])
+)
+display(ctx_sample_catalog)
 
-if not ctx_conversations.empty:
+coverage_matrix = (
+    ctx_conversations[ctx_conversations.seed.eq(CTX_SEED)]
+    .groupby(['split', 'model_mode', 'representation']).sample_id.nunique()
+    .unstack(['split', 'model_mode'])
+)
+display(coverage_matrix)
+"""
+    ),
+    markdown("### 18. Amostras detalhadas: unidades e n-grams nas sete representações"),
+    code(
+        """CTX_SAMPLE_IDS = {'test_internal': None, 'validation': None}
+CTX_SAMPLE_MODES = ('frozen_probe', 'retrained')
+
+def choose_complete_sample(split):
     available = ctx_conversations[
-        ctx_conversations.split.eq(CTX_EXPLORER_SPLIT)
-        & ctx_conversations.model_mode.eq(CTX_MODEL_MODE)
+        ctx_conversations.split.eq(split) & ctx_conversations.seed.eq(CTX_SEED)
+    ].copy()
+    expected = len(CTX_REPRESENTATIONS) * len(CTX_SAMPLE_MODES)
+    complete = available.groupby('sample_id').size()
+    complete_ids = set(complete[complete.eq(expected)].index.astype(str))
+    preferred = available[
+        available.model_mode.eq('retrained')
+        & available.representation.eq('canonical_message')
+        & available.prediction_category.eq('TP')
+        & available.sample_id.astype(str).isin(complete_ids)
+    ].sample_id.astype(str)
+    candidates = sorted(set(preferred) or complete_ids)
+    if not candidates:
+        raise RuntimeError(f'Nenhuma conversa completa encontrada em {split}')
+    return candidates[0]
+
+for split in CTX_SAMPLE_IDS:
+    if CTX_SAMPLE_IDS[split] is None:
+        CTX_SAMPLE_IDS[split] = choose_complete_sample(split)
+
+display(pd.DataFrame([
+    {'split': split, 'sample_id': sample_id}
+    for split, sample_id in CTX_SAMPLE_IDS.items()
+]))
+
+for split, sample_id in CTX_SAMPLE_IDS.items():
+    display(Markdown(f'## Amostra `{split}` — `{sample_id}`'))
+    metadata = ctx_conversations[
+        ctx_conversations.split.eq(split)
         & ctx_conversations.seed.eq(CTX_SEED)
-    ]
-    if CTX_EXPLORER_SAMPLE_ID is None and not available.empty:
-        counts = available.groupby('sample_id').representation.nunique()
-        complete = counts[counts.eq(len(CTX_REPRESENTATIONS))]
-        CTX_EXPLORER_SAMPLE_ID = str(complete.index[0]) if len(complete) else str(available.sample_id.iloc[0])
-    print('sample_id:', CTX_EXPLORER_SAMPLE_ID)
-    display(available[available.sample_id.astype(str).eq(str(CTX_EXPLORER_SAMPLE_ID))].sort_values('representation'))
+        & ctx_conversations.sample_id.astype(str).eq(str(sample_id))
+    ].sort_values(['model_mode', 'representation'])
+    display(metadata[[
+        'model_mode', 'representation', 'prediction_category', 'label',
+        'predicted_label', 'baseline_probability_scam', 'total_units',
+        'total_original_messages',
+    ]])
 
-    case_units = ctx_units[
-        ctx_units.split.eq(CTX_EXPLORER_SPLIT)
-        & ctx_units.model_mode.eq(CTX_MODEL_MODE)
-        & ctx_units.seed.eq(CTX_SEED)
-        & ctx_units.sample_id.astype(str).eq(str(CTX_EXPLORER_SAMPLE_ID))
-    ]
-    for representation in CTX_REPRESENTATIONS:
-        view = case_units[case_units.representation.eq(representation)].nlargest(6, 'abs_delta_logit').sort_values('delta_logit')
-        if view.empty: continue
-        display(Markdown(f'#### {representation}'))
-        display(view[['block_index', 'message_model_indices', 'text', 'delta_logit', 'class_support_delta']])
-        spans = ctx_spans[
-            ctx_spans.split.eq(CTX_EXPLORER_SPLIT)
-            & ctx_spans.model_mode.eq(CTX_MODEL_MODE)
-            & ctx_spans.seed.eq(CTX_SEED)
-            & ctx_spans.sample_id.astype(str).eq(str(CTX_EXPLORER_SAMPLE_ID))
-            & ctx_spans.representation.eq(representation)
-        ].nlargest(12, 'class_support_delta')
-        display(spans[['block_index', 'message_model_index', 'span_text', 'class_support_delta']])
+    for model_mode in CTX_SAMPLE_MODES:
+        display(Markdown(f'### Modo `{model_mode}`'))
+        for representation in CTX_REPRESENTATIONS:
+            units = read_context_detail(
+                'unit_effects', sample_id=sample_id, split=split,
+                representation=representation, model_mode=model_mode,
+                seed=CTX_SEED, columns=CTX_UNIT_COLUMNS,
+            )
+            spans = read_context_detail(
+                'span_effects', sample_id=sample_id, split=split,
+                representation=representation, model_mode=model_mode,
+                seed=CTX_SEED, columns=CTX_SPAN_COLUMNS,
+            )
+            absolute = units.nlargest(6, 'abs_delta_logit').copy()
+            supporting = units[units.class_support_delta.gt(1e-4)].nlargest(
+                6, 'class_support_delta'
+            ).copy()
+            top_spans = spans[spans.class_support_delta.gt(1e-4)].nlargest(
+                10, 'class_support_delta'
+            ).copy()
 
-    case_fidelity = ctx_fidelity[
-        ctx_fidelity.split.eq(CTX_EXPLORER_SPLIT)
-        & ctx_fidelity.model_mode.eq(CTX_MODEL_MODE)
-        & ctx_fidelity.seed.eq(CTX_SEED)
-        & ctx_fidelity.ranking_policy.eq(CTX_RANKING_POLICY)
-        & ctx_fidelity.sample_id.astype(str).eq(str(CTX_EXPLORER_SAMPLE_ID))
-    ]
-    fig, axes = plt.subplots(1, 2, figsize=(18, 5))
-    for representation, group in case_fidelity.groupby('representation'):
-        group = group.sort_values('unique_messages_covered')
-        axes[0].plot(group.unique_messages_covered, group.comprehensiveness_logit_aligned, color=CTX_COLORS[representation], label=representation)
-        axes[1].plot(group.unique_messages_covered, group.sufficiency_distance_logit, color=CTX_COLORS[representation], label=representation)
-    axes[0].set_title('Conversa: comprehensiveness'); axes[1].set_title('Conversa: sufficiency')
-    for ax in axes: ax.set_xlabel('Mensagens originais únicas'); ax.grid(alpha=.25); ax.legend(fontsize=7)
-    plt.tight_layout(); plt.show()
+            display(Markdown(
+                f'#### `{representation}` — {len(units)} unidades; '
+                f'{len(spans):,} perturbações de trecho'
+            ))
+            display(Markdown('**Top-6 por influência absoluta**'))
+            display(absolute[[
+                'block_index', 'message_model_indices', 'text', 'delta_logit',
+                'class_support_delta', 'direction',
+            ]])
+            display(Markdown('**Até seis unidades que sustentam a decisão**'))
+            display(supporting[[
+                'block_index', 'message_model_indices', 'text',
+                'class_support_delta', 'direction',
+            ]])
+            display(Markdown('**Top-10 n-grams que sustentam a decisão**'))
+            display(top_spans[[
+                'block_index', 'message_model_index', 'span_text', 'ngram_size',
+                'delta_logit', 'class_support_delta', 'direction',
+            ]])
+"""
+    ),
+    markdown("### 19. Curvas individuais das amostras nas sete representações"),
+    code(
+        """for split, sample_id in CTX_SAMPLE_IDS.items():
+    for model_mode in CTX_SAMPLE_MODES:
+        case = ctx_fidelity[
+            ctx_fidelity.split.eq(split)
+            & ctx_fidelity.model_mode.eq(model_mode)
+            & ctx_fidelity.seed.eq(CTX_SEED)
+            & ctx_fidelity.ranking_policy.eq(CTX_RANKING_POLICY)
+            & ctx_fidelity.sample_id.astype(str).eq(str(sample_id))
+        ]
+        fig, axes = plt.subplots(1, 2, figsize=(19, 5))
+        for representation, group in case.groupby('representation'):
+            group = group.sort_values('unique_messages_covered')
+            axes[0].plot(
+                group.unique_messages_covered, group.comprehensiveness_logit_aligned,
+                color=CTX_COLORS[representation], label=representation,
+            )
+            axes[1].plot(
+                group.unique_messages_covered, group.sufficiency_distance_logit,
+                color=CTX_COLORS[representation], label=representation,
+            )
+        axes[0].set_title(f'Comprehensiveness | {split} | {model_mode}')
+        axes[1].set_title(f'Sufficiency distance | {split} | {model_mode}')
+        for ax in axes:
+            ax.set_xlabel('Mensagens originais únicas')
+            ax.grid(alpha=.25); ax.legend(fontsize=7)
+        plt.tight_layout(); plt.show()
 """
     ),
 ]
@@ -852,6 +1010,86 @@ if not dataset_id_audit.empty:
 4. Controles aleatórios avaliam especificidade, não veracidade factual do trecho.
 5. Estabilidade entre seeds mede robustez do modelo, não causalidade no mundo real.
 6. No explorador, `absolute_influence` é diagnóstico; `decision_supporting` é a política usada para justificar a classe prevista.
+"""
+    ),
+]
+
+# O notebook dedicado não carrega mais os artefatos legados antes da seção
+# contextual. O canônico já está presente como ``canonical_message`` e passa
+# pelo mesmo protocolo das demais representações.
+cells = [
+    markdown(
+        """# Explicabilidade BGE por unidade contextual
+
+Comparação executável e uniforme entre sete representações:
+
+1. mensagem individual (`canonical_message`);
+2. quatro mensagens do mesmo interlocutor (`speaker_block_4`);
+3. sliding windows cronológicas de 4, 5, 6, 7 e 8 mensagens.
+
+Os resultados globais permanecem separados por split, modo, seed e política.
+As seções finais oferecem amostras concretas de **todas** as representações,
+nos modos `frozen_probe` e `retrained`, sem carregar os 118 milhões de n-grams
+inteiros na memória.
+"""
+    ),
+    markdown(
+        """## Como interpretar
+
+- **Comprehensiveness:** queda do suporte à classe prevista ao remover as evidências; maior tende a ser melhor.
+- **Sufficiency distance:** distância para a saída original usando somente as evidências; menor tende a ser melhor.
+- **Massa aditiva:** soma dos impactos isolados; não substitui a perturbação conjunta.
+- **k95:** menor conjunto que atinge 95% do maior comprehensiveness observado na conversa.
+- **Frozen probe:** checkpoint canônico aplicado à nova unidade sem retreino.
+- **Retrained:** Transformer treinado especificamente para aquela representação.
+"""
+    ),
+    code(
+        """from pathlib import Path
+import json
+import os
+import warnings
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from IPython.display import display, Markdown
+
+warnings.filterwarnings('ignore', category=FutureWarning)
+sns.set_theme(style='whitegrid', context='notebook')
+pd.set_option('display.max_columns', 120)
+pd.set_option('display.max_colwidth', 220)
+
+def find_repository_root(start=None):
+    current = Path(start or Path.cwd()).resolve()
+    for candidate in (current, *current.parents):
+        if (candidate / 'backend' / 'notebooks').is_dir():
+            return candidate
+    fallback = Path(r'C:/Users/Master/Desktop/Recod_ia/HorusEmbbedingPlusML')
+    if fallback.exists():
+        return fallback
+    raise FileNotFoundError('Raiz do repositório HorusEmbbedingPlusML não encontrada.')
+
+REPO_ROOT = find_repository_root()
+default_root = REPO_ROOT / 'backend' / 'experiment_results' / 'transformer' / 'studies' / 'hierarchical_explainability'
+HIER_STUDY_ROOT = Path(os.environ.get('HORUS_BGE_EXPLAINABILITY_ROOT', default_root)).resolve()
+HIER_SPLIT_COLORS = {'test_internal': '#2563eb', 'validation': '#f97316'}
+HIER_CATEGORY_COLORS = {'TP': '#16a34a', 'TN': '#2563eb', 'FP': '#dc2626', 'FN': '#9333ea'}
+
+print(f'Repositório: {REPO_ROOT}')
+print(f'Artefatos:   {HIER_STUDY_ROOT / "context_blocks" / "aggregates"}')
+"""
+    ),
+    *CONTEXT_CELLS,
+    markdown(
+        """## Checklist de interpretação
+
+1. Compare sempre o mesmo split, modo, seed e população.
+2. Leia comprehensiveness e sufficiency em conjunto.
+3. Use boxplots para enxergar a heterogeneidade escondida pela média.
+4. Controles aleatórios medem especificidade, não veracidade factual.
+5. As amostras finais permitem auditar exatamente os blocos e n-grams usados em cada representação.
 """
     ),
 ]
